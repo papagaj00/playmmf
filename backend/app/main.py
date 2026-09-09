@@ -65,8 +65,8 @@ def set_session_cookie(response: Response, token: str) -> None:
         auth.SESSION_COOKIE,
         token,
         httponly=True,
-        samesite="lax",
-        secure=False,
+        samesite="none",
+        secure=True,
         max_age=auth.SESSION_DAYS * 24 * 60 * 60,
     )
 
@@ -96,7 +96,7 @@ def login(payload: schemas.LoginRequest, response: Response, db: Session = Depen
 @app.post("/auth/logout", status_code=204)
 def logout(response: Response, db: Session = Depends(get_db), gbn_session: str | None = Cookie(default=None)):
     crud.revoke_session(db, gbn_session)
-    response.delete_cookie(auth.SESSION_COOKIE)
+    response.delete_cookie(auth.SESSION_COOKIE, samesite="none", secure=True)
 
 
 @app.get("/auth/me", response_model=schemas.UserOut)
