@@ -55,48 +55,40 @@ def _market_to_out(market: models.Market) -> schemas.MarketOut:
 
 
 def get_current_user(
-    db: Session = Depends(get_db), gbn_session: str | None = Cookie(default=None)
+    db: Session = Depends(get_db), authorization: str | None = Header(default=None)
 ) -> models.User:
-    return auth.current_user(db, gbn_session)
-
-
-def set_session_cookie(response: Response, token: str) -> None:
-    response.set_cookie(
-        auth.SESSION_COOKIE,
-        token,
-        httponly=True,
-        samesite="none",
-        secure=True,
-        max_age=auth.SESSION_DAYS * 24 * 60 * 60,
-    )
+    token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1]
+    return auth.current_user(db, token)
 
 
 # ---------- Users ----------
 
 @app.post("/auth/register", response_model=schemas.AuthResponse)
-def register(payload: schemas.RegisterRequest, response: Response, db: Session = Depends(get_db)):
+def register(payload: schemas.RegisterRequest, db: Session = Depends(get_db)):
     try:
         user, token = crud.register_user(db, payload.email, payload.username, payload.password)
     except crud.RegistrationError as error:
         raise HTTPException(status_code=400, detail=str(error))
-    set_session_cookie(response, token)
-    return {"user": user}
+    return {"user": user, "token": token}
 
 
 @app.post("/auth/login", response_model=schemas.AuthResponse)
-def login(payload: schemas.LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
     try:
         user, token = crud.login_user(db, payload.email, payload.password)
     except crud.AuthenticationError as error:
         raise HTTPException(status_code=401, detail=str(error))
-    set_session_cookie(response, token)
-    return {"user": user}
+    return {"user": user, "token": token}
 
 
 @app.post("/auth/logout", status_code=204)
-def logout(response: Response, db: Session = Depends(get_db), gbn_session: str | None = Cookie(default=None)):
-    crud.revoke_session(db, gbn_session)
-    response.delete_cookie(auth.SESSION_COOKIE, samesite="none", secure=True)
+def logout(db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+    token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1]
+    crud.revoke_session(db, token)
 
 
 @app.get("/auth/me", response_model=schemas.UserOut)

@@ -47,6 +47,7 @@ class UserOut(BaseModel):
 
 class AuthResponse(BaseModel):
     user: UserOut
+    token: str
 
 
 class LeaderboardEntry(BaseModel):
