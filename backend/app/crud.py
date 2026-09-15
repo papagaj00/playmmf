@@ -137,8 +137,13 @@ def factory_reset(db: Session) -> None:
     db.query(models.Session).delete(synchronize_session=False)
     db.query(models.Transaction).delete(synchronize_session=False)
     db.query(models.Position).delete(synchronize_session=False)
-    db.query(models.Market).delete(synchronize_session=False)
+    # Market.resolved_outcome_id and Outcome.market_id form a circular
+    # foreign-key relationship, so clear the pointer before deleting outcomes.
+    db.query(models.Market).update(
+        {models.Market.resolved_outcome_id: None}, synchronize_session=False
+    )
     db.query(models.Outcome).delete(synchronize_session=False)
+    db.query(models.Market).delete(synchronize_session=False)
     db.query(models.User).delete(synchronize_session=False)
     db.commit()
 

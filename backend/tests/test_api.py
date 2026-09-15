@@ -419,3 +419,23 @@ def test_factory_reset_requires_admin_key_and_deletes_all_data():
     assert client.get("/leaderboard").json() == []
     assert client.get("/markets").json() == []
     assert client.get("/users/reset-user").status_code == 401
+
+
+def test_factory_reset_deletes_resolved_markets():
+    register("resolved-reset-user")
+    market = client.post(
+        "/markets",
+        json={"title": "Resolved reset", "b": 20, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+    assert client.post(
+        f"/markets/{market['id']}/resolve",
+        json={"winning_outcome_id": market["outcomes"][0]["id"]},
+        headers=ADMIN_HEADERS,
+    ).status_code == 200
+
+    response = client.post("/admin/factory-reset", headers=ADMIN_HEADERS)
+
+    assert response.status_code == 200
+    assert client.get("/markets").json() == []
+    assert client.get("/leaderboard").json() == []
