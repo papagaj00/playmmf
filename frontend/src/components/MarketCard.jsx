@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import TradeSheet from "./TradeSheet";
+import { formatPoints } from "../format";
 
 const STATUS_LABELS = {
   open: "otevřený",
@@ -59,7 +60,7 @@ export default function MarketCard({ market, username, balance, onChanged, isAdm
       );
       setMessage({
         type: "success",
-        text: `Sázka ${amount.toFixed(0)} bodů na „${selectedOutcome.name}“ přijata. Možná výhra: ${result.gross_payout.toFixed(2)} bodů (kurz ${result.multiplier.toFixed(2)}).`,
+        text: `Sázka ${formatPoints(amount)} bodů na „${selectedOutcome.name}“ přijata. Možná výhra: ${formatPoints(result.gross_payout)} bodů (kurz ${result.multiplier.toFixed(2)}).`,
       });
       setQuote(null);
       setSelectedOutcomeId(null);

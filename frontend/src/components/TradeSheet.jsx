@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { formatPoints } from "../format";
 
 export default function TradeSheet({ outcome, amount, balance, onAmountChange, quote, busy, onClose, onConfirm }) {
     if (!outcome) return null;
@@ -24,9 +25,9 @@ export default function TradeSheet({ outcome, amount, balance, onAmountChange, q
                 <div className="trade-sheet__unit">
                     <div>
                         <span className="trade-sheet__label">Vklad</span>
-                        <strong className="trade-sheet__amount-value">{amount.toLocaleString("cs-CZ")} bodů</strong>
+                        <strong className="trade-sheet__amount-value">{formatPoints(amount)} bodů</strong>
                     </div>
-                    <span className="trade-sheet__balance">Zůstatek {balance.toLocaleString("cs-CZ")} bodů</span>
+                    <span className="trade-sheet__balance">Zůstatek {formatPoints(balance)} bodů</span>
                 </div>
                 <div className="stake-control">
                     <div className="stake-control__input-row">
@@ -44,7 +45,7 @@ export default function TradeSheet({ outcome, amount, balance, onAmountChange, q
                     <div className="stake-control__quick-picks">
                         {[100, 500, 1000].map((value) => (
                             <button key={value} type="button" className={amount === value ? "active" : ""} onClick={() => onAmountChange(value)}>
-                                {value.toLocaleString("cs-CZ")}
+                                {formatPoints(value)}
                             </button>
                         ))}
                         {balance >= 100 && (
@@ -57,11 +58,11 @@ export default function TradeSheet({ outcome, amount, balance, onAmountChange, q
                 {quote && (
                     <div className="trade-sheet__payout">
                         <span>Možná výhra</span>
-                        <strong>{quote.gross_payout.toFixed(2)} bodu</strong>
+                        <strong>{formatPoints(quote.gross_payout)} bodů</strong>
                     </div>
                 )}
                 <button className="trade-sheet__confirm" disabled={busy || !quote || amount < 100 || amount > balance} onClick={onConfirm}>
-                    {busy ? "Odesílání…" : `Vsadit ${amount.toLocaleString("cs-CZ")} bodů`}
+                    {busy ? "Odesílání…" : `Vsadit ${formatPoints(amount)} bodů`}
                 </button>
             </section>
         </div>

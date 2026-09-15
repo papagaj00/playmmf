@@ -1,3 +1,5 @@
+import { formatPoints } from "../format";
+
 export default function LeaderboardView({ entries }) {
   return (
     <div>
@@ -20,9 +22,9 @@ export default function LeaderboardView({ entries }) {
               <tr key={row.username}>
                 <td>{i + 1}</td>
                 <td>{row.username}</td>
-                <td className="num">{row.balance.toFixed(1)}</td>
-                <td className="num">{row.portfolio_value.toFixed(1)}</td>
-                <td className="num">{row.total_value.toFixed(1)}</td>
+                <td className="num">{formatPoints(row.balance)}</td>
+                <td className="num">{formatPoints(row.portfolio_value)}</td>
+                <td className="num">{formatPoints(row.total_value)}</td>
               </tr>
             ))}
           </tbody>

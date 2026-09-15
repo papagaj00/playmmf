@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, LogOut } from "lucide-react";
+import { formatPoints } from "../format";
 
 export default function TopBar({ username, balance, onLogout }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -11,7 +12,7 @@ export default function TopBar({ username, balance, onLogout }) {
       </p>
       <div className="topbar__right">
         <button className="balance-chip" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen}>
-          <b>{balance.toFixed(1)}</b> bodů
+          <b>{formatPoints(balance)}</b> bodů
           <ChevronDown size={16} />
         </button>
         {menuOpen && (

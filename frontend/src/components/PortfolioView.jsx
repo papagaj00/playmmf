@@ -1,3 +1,5 @@
+import { formatPoints } from "../format";
+
 const STATUS_LABELS = {
   open: "otevřená",
   closed: "uzavřená",
@@ -14,15 +16,15 @@ export default function PortfolioView({ user, positions, transactions }) {
       <div className="stat-row">
         <div className="stat-box">
           <div className="stat-box__label">Hotovost</div>
-          <div className="stat-box__value">{user.balance.toFixed(1)}</div>
+          <div className="stat-box__value">{formatPoints(user.balance)}</div>
         </div>
         <div className="stat-box">
           <div className="stat-box__label">Hodnota sázek</div>
-          <div className="stat-box__value">{holdingsValue.toFixed(1)}</div>
+          <div className="stat-box__value">{formatPoints(holdingsValue)}</div>
         </div>
         <div className="stat-box">
           <div className="stat-box__label">Celkem</div>
-          <div className="stat-box__value">{(user.balance + holdingsValue).toFixed(1)}</div>
+          <div className="stat-box__value">{formatPoints(user.balance + holdingsValue)}</div>
         </div>
       </div>
 
@@ -47,8 +49,8 @@ export default function PortfolioView({ user, positions, transactions }) {
               <tr key={`${p.market_id}-${p.outcome_id}`}>
                 <td>{p.market_title}</td>
                 <td>{p.outcome_name}</td>
-                <td className="num">{p.potential_payout.toFixed(2)}</td>
-                <td className="num">{p.liquidation_value.toFixed(1)}</td>
+                <td className="num">{formatPoints(p.potential_payout)}</td>
+                <td className="num">{formatPoints(p.liquidation_value)}</td>
                 <td>{STATUS_LABELS[p.market_status] || p.market_status}</td>
               </tr>
             ))}
@@ -78,16 +80,16 @@ export default function PortfolioView({ user, positions, transactions }) {
                   <>
                     <td>Startovní body</td>
                     <td>—</td>
-                    <td className="num">+{Math.abs(t.amount).toFixed(0)} bodů</td>
+                    <td className="num">+{formatPoints(Math.abs(t.amount))} bodů</td>
                     <td className="activity-result neutral">Připsáno</td>
                   </>
                 ) : (
                   <>
                     <td>{t.market_title || "—"}</td>
                     <td>{t.outcome_name || "—"}</td>
-                    <td className="num">{t.amount.toFixed(2)} bodu</td>
+                    <td className="num">{formatPoints(t.amount)} bodů</td>
                     <td className={`activity-result ${t.resolved ? (t.won ? "won" : "lost") : "pending"}`}>
-                      {!t.resolved ? "Čeká" : t.won ? `+${t.winnings.toFixed(2)} bodu` : "Prohra"}
+                      {!t.resolved ? "Čeká" : t.won ? `+${formatPoints(t.winnings)} bodů` : "Prohra"}
                     </td>
                   </>
                 )}
