@@ -8,7 +8,7 @@ import PortfolioView from "./components/PortfolioView";
 import AdminView from "./components/AdminView";
 import BottomNav from "./components/BottomNav";
 
-const ADMIN_KEY_KEY = "matchday-admin-key";
+const ADMIN_KEY_KEY = "playmff-admin-key";
 
 export default function App() {
   const [username, setUsername] = useState("");

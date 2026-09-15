@@ -16,6 +16,12 @@ export default function MarketCard({ market, username, onChanged, isAdmin, admin
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
 
+  const orderedOutcomes = [...market.outcomes].sort((left, right) => left.id - right.id);
+  const leadingOutcomeIndex = orderedOutcomes.reduce(
+    (leadingIndex, outcome, index) =>
+      outcome.price > orderedOutcomes[leadingIndex].price ? index : leadingIndex,
+    0
+  );
   const selectedOutcome = market.outcomes.find((outcome) => outcome.id === selectedOutcomeId);
   const tradable = market.status === "open" && username;
 
@@ -106,13 +112,13 @@ export default function MarketCard({ market, username, onChanged, isAdmin, admin
       </div>
 
       <div className="tug-bar">
-        {market.outcomes.map((o, i) => (
+        {orderedOutcomes.map((o, i) => (
           <div
             key={o.id}
             className="tug-bar__side"
             style={{
               width: `${o.price * 100}%`,
-              background: o.price === Math.max(...market.outcomes.map((item) => item.price))
+              background: i === leadingOutcomeIndex
                 ? "var(--accent)"
                 : "var(--surface-raised)",
               justifyContent: i === 0 ? "flex-start" : "flex-end",
@@ -126,7 +132,7 @@ export default function MarketCard({ market, username, onChanged, isAdmin, admin
       </div>
 
       <div className="outcome-bets">
-        {market.outcomes.map((outcome) => (
+        {orderedOutcomes.map((outcome) => (
           <button
             key={outcome.id}
             className={`outcome-bet ${selectedOutcomeId === outcome.id ? "selected" : ""} ${market.resolved_outcome_id === outcome.id ? "winner" : ""}`}
@@ -175,7 +181,7 @@ export default function MarketCard({ market, username, onChanged, isAdmin, admin
               <option value="" disabled>
                 Vyhodnotit jako…
               </option>
-              {market.outcomes.map((o) => (
+              {orderedOutcomes.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
                 </option>

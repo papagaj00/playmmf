@@ -29,7 +29,7 @@ export default function LoginScreen({ onLogin }) {
   return (
     <div className="login-screen">
       <form className="login-card" onSubmit={handleSubmit}>
-        <h1>GBN Fantasy™</h1>
+        <h1>playmff</h1>
         <p>{registering ? "Vytvoř si účet pomocí školního e-mailu a sázej na výsledky turnaje." : "Přihlas se školním e-mailem a pokračuj ve svých sázkách."}</p>
         <div className="auth-mode-toggle">
           <button type="button" className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Přihlášení</button>

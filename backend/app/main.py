@@ -20,7 +20,7 @@ CORS_ORIGINS = [
 Base.metadata.create_all(bind=engine)
 ensure_auth_columns()
 
-app = FastAPI(title="GBN Fantasy™")
+app = FastAPI(title="playmff")
 
 app.add_middleware(
     CORSMiddleware,
