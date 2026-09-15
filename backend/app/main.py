@@ -7,10 +7,8 @@ from sqlalchemy.orm import Session
 from app import auth, crud, models, schemas
 from app.database import Base, ensure_auth_columns, engine, get_db
 
-# Simple shared-secret admin auth. Change ADMIN_KEY via environment
-# variable in production; this is fine for a school-tournament app run on
-# a trusted local network / small group.
-ADMIN_KEY = os.environ.get("ADMIN_KEY", "changeme")
+# Simple shared-secret admin auth. Configure ADMIN_KEY in every environment.
+ADMIN_KEY = os.environ.get("ADMIN_KEY")
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
@@ -32,6 +30,8 @@ app.add_middleware(
 
 
 def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
+    if not ADMIN_KEY:
+        raise HTTPException(status_code=503, detail="Administrátorský klíč není nakonfigurován.")
     if x_admin_key != ADMIN_KEY:
         raise HTTPException(status_code=403, detail="Je vyžadován administrátorský klíč.")
 
@@ -55,40 +55,44 @@ def _market_to_out(market: models.Market) -> schemas.MarketOut:
 
 
 def get_current_user(
-    db: Session = Depends(get_db), authorization: str | None = Header(default=None)
+    db: Session = Depends(get_db), authorization: str | None = Header(default=None),
+    gbn_session: str | None = Cookie(default=None),
 ) -> models.User:
     token = None
     if authorization and authorization.lower().startswith("bearer "):
         token = authorization.split(" ", 1)[1]
-    return auth.current_user(db, token)
+    return auth.current_user(db, token=token, gbn_session=gbn_session)
 
 
 # ---------- Users ----------
 
 @app.post("/auth/register", response_model=schemas.AuthResponse)
-def register(payload: schemas.RegisterRequest, db: Session = Depends(get_db)):
+def register(payload: schemas.RegisterRequest, response: Response, db: Session = Depends(get_db)):
     try:
         user, token = crud.register_user(db, payload.email, payload.username, payload.password)
     except crud.RegistrationError as error:
         raise HTTPException(status_code=400, detail=str(error))
+    response.set_cookie(auth.SESSION_COOKIE, token, httponly=True, samesite="lax", max_age=auth.SESSION_DAYS * 86400)
     return {"user": user, "token": token}
 
 
 @app.post("/auth/login", response_model=schemas.AuthResponse)
-def login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
+def login(payload: schemas.LoginRequest, response: Response, db: Session = Depends(get_db)):
     try:
         user, token = crud.login_user(db, payload.email, payload.password)
     except crud.AuthenticationError as error:
         raise HTTPException(status_code=401, detail=str(error))
+    response.set_cookie(auth.SESSION_COOKIE, token, httponly=True, samesite="lax", max_age=auth.SESSION_DAYS * 86400)
     return {"user": user, "token": token}
 
 
 @app.post("/auth/logout", status_code=204)
-def logout(db: Session = Depends(get_db), authorization: str | None = Header(default=None)):
+def logout(response: Response, db: Session = Depends(get_db), authorization: str | None = Header(default=None), gbn_session: str | None = Cookie(default=None)):
     token = None
     if authorization and authorization.lower().startswith("bearer "):
         token = authorization.split(" ", 1)[1]
-    crud.revoke_session(db, token)
+    crud.revoke_session(db, token or gbn_session)
+    response.delete_cookie(auth.SESSION_COOKIE)
 
 
 @app.get("/auth/me", response_model=schemas.UserOut)
@@ -133,6 +137,31 @@ def factory_reset(db: Session = Depends(get_db)):
     return {"status": "reset", "message": "Všichni uživatelé, zápasy a sázková data byla smazána."}
 
 
+@app.post("/admin/balance-adjustment", dependencies=[Depends(require_admin)])
+def balance_adjustment(payload: schemas.BalanceAdjustmentRequest, db: Session = Depends(get_db)):
+    try:
+        count = crud.adjust_all_balances(db, payload.points)
+    except crud.InvalidBalanceAdjustment as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    return {"updated_users": count, "points": payload.points}
+
+
+@app.post("/admin/users/ban", response_model=schemas.UserOut, dependencies=[Depends(require_admin)])
+def ban_user(payload: schemas.BanUserRequest, db: Session = Depends(get_db)):
+    try:
+        return crud.set_user_banned(db, payload.email, True)
+    except crud.UserNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error))
+
+
+@app.post("/admin/users/unban", response_model=schemas.UserOut, dependencies=[Depends(require_admin)])
+def unban_user(payload: schemas.BanUserRequest, db: Session = Depends(get_db)):
+    try:
+        return crud.set_user_banned(db, payload.email, False)
+    except crud.UserNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error))
+
+
 # ---------- Markets ----------
 
 @app.post("/markets", response_model=schemas.MarketOut, dependencies=[Depends(require_admin)])
@@ -167,6 +196,14 @@ def set_market_status(market_id: int, status: models.MarketStatus, db: Session =
         raise HTTPException(status_code=404, detail="Zápas nebyl nalezen.")
     market = crud.set_market_status(db, market, status)
     return _market_to_out(market)
+
+
+@app.delete("/markets/{market_id}", status_code=204, dependencies=[Depends(require_admin)])
+def delete_market(market_id: int, db: Session = Depends(get_db)):
+    market = crud.get_market(db, market_id)
+    if not market:
+        raise HTTPException(status_code=404, detail="Zápas nebyl nalezen.")
+    crud.delete_market(db, market)
 
 
 @app.post(

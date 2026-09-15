@@ -43,6 +43,7 @@ class UserOut(BaseModel):
     username: str
     balance: float
     is_admin: bool
+    is_banned: bool
 
 
 class AuthResponse(BaseModel):
@@ -87,6 +88,19 @@ class MarketOut(BaseModel):
 
 class MarketResolve(BaseModel):
     winning_outcome_id: int
+
+
+class BalanceAdjustmentRequest(BaseModel):
+    points: float = Field(description="Positive adds points, negative removes points")
+
+
+class BanUserRequest(BaseModel):
+    email: str = Field(min_length=6, max_length=254)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.strip().casefold()
 
 
 # ---------- Trading ----------

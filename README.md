@@ -45,12 +45,12 @@ python -m venv .venv   # or use your existing shared venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# ADMIN_KEY protects match creation/resolution — pick something and share
+# ADMIN_KEY protects match creation, administration, and resolution — pick something and share
 # it only with whoever is running the tournament.
 ADMIN_KEY=your-secret-here uvicorn app.main:app --reload
 
-# For a frontend served from another origin, configure cookie-enabled CORS
-# before starting Uvicorn. Multiple origins can be comma-separated.
+# For a frontend served from another origin, configure CORS before starting
+# Uvicorn. Multiple origins can be comma-separated.
 # Windows PowerShell: $env:CORS_ORIGINS="http://localhost:5173"
 ```
 
@@ -84,13 +84,17 @@ deployed), copy `.env.example` to `.env` and set `VITE_API_URL`.
 2. Whoever is running the tournament enters the `ADMIN_KEY` in the Admin
   tab, then creates a match per game (title + possible results + a
    liquidity parameter `b`).
-3. Players select an outcome, review the exact gross payout and multiplier,
+3. The Admin tab can grant or remove points from every player, ban or unban a
+  player by school email, permanently delete matches, and perform a factory
+  reset. Balance changes are recorded in transaction history; balance removal
+  is rejected if it would make any account negative.
+4. Players select an outcome, review the exact gross payout and multiplier,
   and click **Bet 1 pt** for each point they want to wager. Prices update live
   after every click (the app polls every 5 seconds).
-4. When a match ends, the admin picks the winning outcome from the
+5. When a match ends, the admin picks the winning outcome from the
   dropdown on that match's card — this resolves the match and pays out
    winners automatically.
-5. Leaderboard tab shows cash + holdings value for everyone.
+6. Leaderboard tab shows cash + holdings value for everyone.
 
 ## Choosing `b` (the liquidity parameter)
 
@@ -106,8 +110,9 @@ one-point wager to move the odds more visibly.
   environment variable, checked via an `X-Admin-Key` header. Fine for a
   small trusted group; swap for real accounts/auth if this grows.
 - **Existing database**: the new account fields are added at startup, but
-  existing username-only accounts cannot log in. Run the admin factory reset
-  once before launch, then have everyone register with a school account.
+  existing username-only accounts cannot log in. The ban field is also added
+  automatically at startup. Run the admin factory reset once before launch,
+  then have everyone register with a school account.
 - **Persistence**: SQLite file (`backend/tournament.db`), fine at this
   scale. Back it up if you care about the results.
 - **Deployment**: both are plain processes (Uvicorn + a static Vite

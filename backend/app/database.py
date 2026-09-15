@@ -26,6 +26,8 @@ def ensure_auth_columns() -> None:
             connection.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(254)"))
         if "password_hash" not in columns:
             connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+        if "is_banned" not in columns:
+            connection.execute(text("ALTER TABLE users ADD COLUMN is_banned BOOLEAN NOT NULL DEFAULT 0"))
 
 
 class Base(DeclarativeBase):

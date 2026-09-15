@@ -52,10 +52,14 @@ def get_user_from_token(db: Session, raw_token: str | None) -> models.User:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at <= now:
         raise HTTPException(status_code=401, detail="Přihlášení vypršelo.")
+    if session.user.is_banned:
+        raise HTTPException(status_code=403, detail="Tento účet byl zablokován.")
     return session.user
 
 
 def current_user(
-    db: Session, gbn_session: str | None = Cookie(default=None)
+    db: Session,
+    token: str | None = None,
+    gbn_session: str | None = Cookie(default=None),
 ) -> models.User:
-    return get_user_from_token(db, gbn_session)
+    return get_user_from_token(db, token or gbn_session)

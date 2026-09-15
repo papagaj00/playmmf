@@ -10,6 +10,8 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
   const [message, setMessage] = useState(null);
   const [verified, setVerified] = useState(false);
   const [checkingKey, setCheckingKey] = useState(false);
+  const [points, setPoints] = useState(5);
+  const [email, setEmail] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +55,47 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
       onFactoryReset();
     } catch (err) {
       setMessage({ type: "error", text: err.message });
+      setBusy(false);
+    }
+  }
+
+  async function handleBalanceAdjustment(e) {
+    e.preventDefault();
+    const value = Number(points);
+    if (!Number.isFinite(value) || value === 0) {
+      setMessage({ type: "error", text: "Zadej nenulový počet bodů." });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api.adjustAllBalances(value, adminKey);
+      setMessage({ type: "success", text: `Upraveno účtů: ${result.updated_users}.` });
+      onMarketCreated();
+    } catch (err) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleBan(banned) {
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail) {
+      setMessage({ type: "error", text: "Zadej e-mail hráče." });
+      return;
+    }
+    setBusy(true);
+    setMessage(null);
+    try {
+      const action = banned ? api.banUser : api.unbanUser;
+      await action(normalizedEmail, adminKey);
+      setMessage({ type: "success", text: banned ? "Hráč byl zablokován." : "Hráč byl odblokován." });
+      setEmail("");
+      onMarketCreated();
+    } catch (err) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
       setBusy(false);
     }
   }
@@ -160,6 +203,25 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
             </button>
           </div>
         </form>
+
+        <section className="admin-form" style={{ marginTop: 28 }}>
+          <h3>Body hráčů</h3>
+          <p>Přidej nebo odeber stejný počet bodů všem hráčům.</p>
+          <form className="admin-inline-form" onSubmit={handleBalanceAdjustment}>
+            <input type="number" step="0.01" value={points} onChange={(e) => setPoints(e.target.value)} />
+            <button className="btn-small" disabled={busy}>Upravit všem</button>
+          </form>
+        </section>
+
+        <section className="admin-form" style={{ marginTop: 28 }}>
+          <h3>Blokace hráče</h3>
+          <p>Zablokovaný e-mail se nemůže přihlásit a jeho aktivní relace se zruší.</p>
+          <input type="email" placeholder="hrac@gbn.cz" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <div className="admin-form-actions">
+            <button type="button" className="btn-small" disabled={busy} onClick={() => handleBan(true)}>Zablokovat</button>
+            <button type="button" className="btn-small" disabled={busy} onClick={() => handleBan(false)}>Odblokovat</button>
+          </div>
+        </section>
 
         <section className="admin-form" style={{ marginTop: 28 }}>
           <h3>Tovární reset</h3>

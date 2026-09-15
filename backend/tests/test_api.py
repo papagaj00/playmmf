@@ -369,6 +369,42 @@ def test_leaderboard_reflects_balances_and_open_positions():
     assert "alice" in names
 
 
+def test_admin_balance_adjustment_ban_and_market_deletion():
+    register("admin-controls")
+    market = client.post(
+        "/markets",
+        json={"title": "Delete me", "b": 20, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+
+    adjustment = client.post(
+        "/admin/balance-adjustment", json={"points": 5}, headers=ADMIN_HEADERS
+    )
+    assert adjustment.status_code == 200
+    assert adjustment.json()["updated_users"] >= 1
+    assert client.get("/users/admin-controls").json()["balance"] == 105
+
+    banned = client.post(
+        "/admin/users/ban",
+        json={"email": "admin-controls@gbn.cz"},
+        headers=ADMIN_HEADERS,
+    )
+    assert banned.status_code == 200
+    assert client.get("/auth/me").status_code == 401
+    assert client.post(
+        "/auth/login",
+        json={"email": "admin-controls@gbn.cz", "password": "spravneheslo"},
+    ).status_code == 401
+
+    assert client.post(
+        f"/markets/{market['id']}/resolve",
+        json={"winning_outcome_id": market["outcomes"][0]["id"]},
+        headers=ADMIN_HEADERS,
+    ).status_code == 200
+    assert client.delete(f"/markets/{market['id']}", headers=ADMIN_HEADERS).status_code == 204
+    assert client.get(f"/markets/{market['id']}").status_code == 404
+
+
 def test_factory_reset_requires_admin_key_and_deletes_all_data():
     register("reset-user")
     client.post(

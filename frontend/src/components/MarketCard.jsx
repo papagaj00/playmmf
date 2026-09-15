@@ -87,6 +87,19 @@ export default function MarketCard({ market, username, onChanged, isAdmin, admin
     }
   }
 
+  async function handleDelete() {
+    if (!confirm("Trvale smazat tento zápas, všechny sázky a jeho historii? Tuto akci nelze vrátit.")) return;
+    setAdminBusy(true);
+    try {
+      await api.deleteMarket(market.id, adminKey);
+      onChanged();
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setAdminBusy(false);
+    }
+  }
+
   async function handleResolve(outcomeId) {
     if (!outcomeId) return;
     if (!confirm("Vyhodnotit zápas a vyplatit výherní sázky? Tuto akci nelze vrátit.")) return;
@@ -160,19 +173,19 @@ export default function MarketCard({ market, username, onChanged, isAdmin, admin
       )}
       {message && <div className={`trade-message ${message.type}`}>{message.text}</div>}
 
-      {isAdmin && market.status !== "resolved" && (
+      {isAdmin && (
         <div className="market-card__footer">
-          {market.status === "open" && (
+          {market.status !== "resolved" && market.status === "open" && (
             <button className="btn-small" disabled={adminBusy} onClick={() => handleAdminAction("close")}>
               Uzavřít sázky
             </button>
           )}
-          {market.status === "closed" && (
+          {market.status !== "resolved" && market.status === "closed" && (
             <button className="btn-small" disabled={adminBusy} onClick={() => handleAdminAction("reopen")}>
               Znovu otevřít sázky
             </button>
           )}
-          <div className="resolve-row">
+          {market.status !== "resolved" && <div className="resolve-row">
             <select
               disabled={adminBusy}
               defaultValue=""
@@ -187,7 +200,10 @@ export default function MarketCard({ market, username, onChanged, isAdmin, admin
                 </option>
               ))}
             </select>
-          </div>
+          </div>}
+          <button className="btn-small danger" disabled={adminBusy} onClick={handleDelete}>
+            Smazat zápas
+          </button>
         </div>
       )}
     </div>

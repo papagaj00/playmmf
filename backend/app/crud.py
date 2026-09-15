@@ -36,6 +36,14 @@ class AuthenticationError(Exception):
     pass
 
 
+class UserNotFound(Exception):
+    pass
+
+
+class InvalidBalanceAdjustment(Exception):
+    pass
+
+
 def _validate_trade(shares: float, amount: float) -> None:
     if abs(shares) < MIN_TRADE_SHARES:
         raise InvalidTrade(f"Sázka musí mít alespoň {MIN_TRADE_SHARES:g} jednotku.")
@@ -87,6 +95,8 @@ def login_user(db: Session, email: str, password: str) -> tuple[models.User, str
     user = get_user_by_email(db, email)
     if user is None or user.password_hash is None or not auth.verify_password(password, user.password_hash):
         raise AuthenticationError("E-mail nebo heslo není správné.")
+    if user.is_banned:
+        raise AuthenticationError("Tento účet byl zablokován.")
     return user, auth.new_session(db, user)
 
 
@@ -127,10 +137,45 @@ def factory_reset(db: Session) -> None:
     db.query(models.Session).delete(synchronize_session=False)
     db.query(models.Transaction).delete(synchronize_session=False)
     db.query(models.Position).delete(synchronize_session=False)
-    db.query(models.Outcome).delete(synchronize_session=False)
     db.query(models.Market).delete(synchronize_session=False)
+    db.query(models.Outcome).delete(synchronize_session=False)
     db.query(models.User).delete(synchronize_session=False)
     db.commit()
+
+
+def adjust_all_balances(db: Session, points: float) -> int:
+    if points == 0:
+        raise InvalidBalanceAdjustment("Zadej nenulovou změnu bodů.")
+    users = db.query(models.User).all()
+    if points < 0 and any(user.balance + points < 0 for user in users):
+        raise InvalidBalanceAdjustment("Tato změna by snížila některý účet pod nulu.")
+    for user in users:
+        user.balance += points
+        db.add(
+            models.Transaction(
+                user_id=user.id,
+                outcome_id=None,
+                type=models.TransactionType.GRANT,
+                shares=0,
+                amount=-points,
+                balance_after=user.balance,
+            )
+        )
+    db.commit()
+    return len(users)
+
+
+def set_user_banned(db: Session, email: str, banned: bool) -> models.User:
+    user = get_user_by_email(db, email)
+    if user is None:
+        raise UserNotFound("Uživatel s tímto e-mailem nebyl nalezen.")
+    user.is_banned = banned
+    if banned:
+        for session in user.sessions:
+            session.revoked_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
+    return user
 
 
 def get_leaderboard(db: Session) -> list[dict]:
@@ -174,6 +219,19 @@ def create_market(
 
 def get_market(db: Session, market_id: int) -> models.Market | None:
     return db.get(models.Market, market_id)
+
+
+def delete_market(db: Session, market: models.Market) -> None:
+    outcome_ids = [outcome.id for outcome in market.outcomes]
+    if outcome_ids:
+        db.query(models.Transaction).filter(models.Transaction.outcome_id.in_(outcome_ids)).delete(
+            synchronize_session=False
+        )
+        db.query(models.Position).filter(models.Position.outcome_id.in_(outcome_ids)).delete(
+            synchronize_session=False
+        )
+    db.delete(market)
+    db.commit()
 
 
 def list_markets(db: Session) -> list[models.Market]:

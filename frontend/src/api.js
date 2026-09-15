@@ -61,6 +61,16 @@ export const api = {
   getLeaderboard: () => request("/leaderboard"),
   factoryReset: (adminKey) =>
     request("/admin/factory-reset", { method: "POST", adminKey }),
+  adjustAllBalances: (points, adminKey) =>
+    request("/admin/balance-adjustment", {
+      method: "POST",
+      body: { points },
+      adminKey,
+    }),
+  banUser: (email, adminKey) =>
+    request("/admin/users/ban", { method: "POST", body: { email }, adminKey }),
+  unbanUser: (email, adminKey) =>
+    request("/admin/users/unban", { method: "POST", body: { email }, adminKey }),
 
   listMarkets: () => request("/markets"),
   getMarket: (id) => request(`/markets/${id}`),
@@ -68,6 +78,8 @@ export const api = {
     request("/markets", { method: "POST", body: payload, adminKey }),
   setMarketStatus: (id, status, adminKey) =>
     request(`/markets/${id}/status?status=${status}`, { method: "POST", adminKey }),
+  deleteMarket: (id, adminKey) =>
+    request(`/markets/${id}`, { method: "DELETE", adminKey }),
   resolveMarket: (id, winning_outcome_id, adminKey) =>
     request(`/markets/${id}/resolve`, {
       method: "POST",
