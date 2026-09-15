@@ -165,6 +165,81 @@ select {
     border-top: 1px solid var(--border);
 }
 
+.trade-sheet__unit {
+    gap: 14px;
+}
+
+.trade-sheet__label {
+    display: block;
+    color: var(--text-dim);
+    font-size: 13px;
+}
+
+.trade-sheet__amount-value {
+    display: block;
+}
+
+.trade-sheet__balance {
+    color: var(--text-dim);
+    font-size: 12px;
+    text-align: right;
+}
+
+.stake-control {
+    display: grid;
+    gap: 10px;
+}
+
+.stake-control__input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-dim);
+}
+
+.stake-control__input {
+    width: 100%;
+    min-width: 0;
+    padding: 4px 0;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    font-family: var(--font-mono);
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.stake-control__input:focus {
+    outline: 0;
+}
+
+.stake-control__quick-picks {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+}
+
+.stake-control__quick-picks button {
+    min-height: 38px;
+    padding: 6px 8px;
+    color: var(--text-dim);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.stake-control__quick-picks button.active,
+.stake-control__quick-picks button:hover {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
 .bottom-nav button {
     position: relative;
     display: grid;

@@ -108,6 +108,7 @@ export default function App() {
           <MarketsView
             markets={markets}
             username={username}
+            balance={user ? user.balance : 0}
             onChanged={refreshAll}
             isAdmin={isAdmin}
             adminKey={adminKey}

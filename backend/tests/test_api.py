@@ -53,7 +53,7 @@ def test_health():
 def test_create_user_grants_starting_balance():
     r = register("alice")
     assert r.status_code == 200
-    assert r.json()["user"]["balance"] == 100.0
+    assert r.json()["user"]["balance"] == 10000.0
 
 
 def test_create_user_is_idempotent():
@@ -150,7 +150,7 @@ def test_full_trading_flow():
     )
     assert r.status_code == 200
     trade = r.json()
-    assert trade["new_balance"] == pytest.approx(100.0 - trade["amount"])
+    assert trade["new_balance"] == pytest.approx(10000.0 - trade["amount"])
 
     # Position shows up
     r = client.get("/users/carol/positions")
@@ -172,7 +172,7 @@ def test_full_trading_flow():
     r = client.get("/users/carol")
     balance_after_resolution = r.json()["balance"]
     assert balance_after_resolution == pytest.approx(
-        100.0 - trade["amount"] + 10
+        10000.0 - trade["amount"] + 10
     )
 
     # The payout is now cash; the resolved market is no longer an open position.
@@ -223,7 +223,7 @@ def test_rejects_zero_and_fractional_trades():
         assert r.status_code == 400
 
 
-def test_one_point_wager_quote_and_execution():
+def test_variable_wager_quote_and_execution():
     register("bettor")
     r = client.post(
         "/markets",
@@ -235,25 +235,25 @@ def test_one_point_wager_quote_and_execution():
 
     quote = client.post(
         f"/markets/{market_id}/wager/quote",
-        json={"outcome_id": outcome_id, "amount": 1},
+        json={"outcome_id": outcome_id, "amount": 100},
     )
     assert quote.status_code == 200
     quote_data = quote.json()
-    assert quote_data["amount"] == 1
+    assert quote_data["amount"] == 100
     assert quote_data["gross_payout"] == pytest.approx(quote_data["shares"])
-    assert quote_data["multiplier"] == pytest.approx(quote_data["shares"])
+    assert quote_data["multiplier"] == pytest.approx(quote_data["shares"] / 100)
 
     wager = client.post(
         f"/markets/{market_id}/wager",
-        json={"username": "bettor", "outcome_id": outcome_id, "amount": 1},
+        json={"username": "bettor", "outcome_id": outcome_id, "amount": 100},
     )
     assert wager.status_code == 200
-    assert wager.json()["new_balance"] == pytest.approx(99)
+    assert wager.json()["new_balance"] == pytest.approx(9900)
     assert wager.json()["shares"] == pytest.approx(quote_data["shares"])
 
     rejected = client.post(
         f"/markets/{market_id}/wager/quote",
-        json={"outcome_id": outcome_id, "amount": 5},
+        json={"outcome_id": outcome_id, "amount": 50},
     )
     assert rejected.status_code == 400
 
@@ -267,7 +267,7 @@ def test_wager_rejects_insufficient_funds():
     )
     response = client.post(
         f"/markets/{r.json()['id']}/wager",
-        json={"username": "poor-bettor", "outcome_id": r.json()["outcomes"][0]["id"], "amount": 101},
+        json={"username": "poor-bettor", "outcome_id": r.json()["outcomes"][0]["id"], "amount": 10001},
     )
     assert response.status_code == 400
 
@@ -294,8 +294,8 @@ def test_buying_does_not_create_immediate_liquidation_profit():
         row for row in client.get("/leaderboard").json()
         if row["username"] == "liquidation"
     )
-    assert user["balance"] + positions[0]["liquidation_value"] == pytest.approx(100.0)
-    assert leaderboard["total_value"] == pytest.approx(100.0)
+    assert user["balance"] + positions[0]["liquidation_value"] == pytest.approx(10000.0)
+    assert leaderboard["total_value"] == pytest.approx(10000.0)
 
 
 def test_cannot_trade_on_resolved_market():
@@ -339,7 +339,7 @@ def test_transaction_history_describes_resolved_wager():
 
     wager = client.post(
         f"/markets/{market_id}/wager",
-        json={"username": "history-user", "outcome_id": outcome_id, "amount": 1},
+        json={"username": "history-user", "outcome_id": outcome_id, "amount": 100},
     )
     assert wager.status_code == 200
 
@@ -382,7 +382,7 @@ def test_admin_balance_adjustment_ban_and_market_deletion():
     )
     assert adjustment.status_code == 200
     assert adjustment.json()["updated_users"] >= 1
-    assert client.get("/users/admin-controls").json()["balance"] == 105
+    assert client.get("/users/admin-controls").json()["balance"] == 10005
 
     banned = client.post(
         "/admin/users/ban",

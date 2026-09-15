@@ -4,7 +4,7 @@ import { api } from "../api";
 export default function AdminView({ adminKey, setAdminKey, onAdminVerificationChange, onMarketCreated, onFactoryReset }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [b, setB] = useState(100);
+  const [b, setB] = useState(5000);
   const [outcomeNames, setOutcomeNames] = useState(["", ""]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);

@@ -1,6 +1,6 @@
 import MarketCard from "./MarketCard";
 
-export default function MarketsView({ markets, username, onChanged, isAdmin, adminKey }) {
+export default function MarketsView({ markets, username, balance, onChanged, isAdmin, adminKey }) {
   const open = markets.filter((m) => m.status !== "resolved");
   const resolved = markets.filter((m) => m.status === "resolved");
 
@@ -14,6 +14,7 @@ export default function MarketsView({ markets, username, onChanged, isAdmin, adm
           key={m.id}
           market={m}
           username={username}
+          balance={balance}
           onChanged={onChanged}
           isAdmin={isAdmin}
           adminKey={adminKey}
@@ -30,6 +31,7 @@ export default function MarketsView({ markets, username, onChanged, isAdmin, adm
               key={m.id}
               market={m}
               username={username}
+              balance={balance}
               onChanged={onChanged}
               isAdmin={isAdmin}
               adminKey={adminKey}

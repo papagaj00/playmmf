@@ -120,7 +120,7 @@ class QuoteResponse(BaseModel):
 
 class WagerRequest(BaseModel):
     outcome_id: int
-    amount: float = Field(description="Exactly 1 point to stake")
+    amount: float = Field(gt=0, description="Point amount to stake")
 
 
 class WagerQuoteResponse(BaseModel):

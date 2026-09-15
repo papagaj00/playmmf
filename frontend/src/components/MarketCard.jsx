@@ -8,10 +8,10 @@ const STATUS_LABELS = {
   resolved: "vyhodnocený",
 };
 
-export default function MarketCard({ market, username, onChanged, isAdmin, adminKey }) {
+export default function MarketCard({ market, username, balance, onChanged, isAdmin, adminKey }) {
   const [adminBusy, setAdminBusy] = useState(false);
   const [selectedOutcomeId, setSelectedOutcomeId] = useState(null);
-  const amount = 1;
+  const [amount, setAmount] = useState(100);
   const [quote, setQuote] = useState(null);
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -59,7 +59,7 @@ export default function MarketCard({ market, username, onChanged, isAdmin, admin
       );
       setMessage({
         type: "success",
-        text: `Sázka ${amount.toFixed(2)} bodu na „${selectedOutcome.name}“ přijata. Možná výhra: ${result.gross_payout.toFixed(2)} bodu (kurz ${result.multiplier.toFixed(2)}).`,
+        text: `Sázka ${amount.toFixed(0)} bodů na „${selectedOutcome.name}“ přijata. Možná výhra: ${result.gross_payout.toFixed(2)} bodů (kurz ${result.multiplier.toFixed(2)}).`,
       });
       setQuote(null);
       setSelectedOutcomeId(null);
@@ -165,6 +165,12 @@ export default function MarketCard({ market, username, onChanged, isAdmin, admin
       {tradable && selectedOutcome && (
         <TradeSheet
           outcome={selectedOutcome}
+          amount={amount}
+          balance={balance}
+          onAmountChange={(nextAmount) => {
+            setAmount(nextAmount);
+            setQuote(null);
+          }}
           quote={quote}
           busy={busy}
           onClose={() => setSelectedOutcomeId(null)}

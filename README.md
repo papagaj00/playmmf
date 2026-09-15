@@ -11,7 +11,7 @@ available even with a small number of players.
 - Odds move automatically as people place wagers — no manual odds-setting
   needed. Prices always sum to 100% and represent the crowd's implied
   probability.
-- Every player starts with 100 play points (`STARTING_BALANCE` in
+- Every player starts with 10,000 play points (`STARTING_BALANCE` in
   `backend/app/crud.py`).
 - Players register with a school email ending in `@gbn.cz` or `@gymbn.cz`, a
   username, and a password. They then log in with that school email.
@@ -88,9 +88,9 @@ deployed), copy `.env.example` to `.env` and set `VITE_API_URL`.
   player by school email, permanently delete matches, and perform a factory
   reset. Balance changes are recorded in transaction history; balance removal
   is rejected if it would make any account negative.
-4. Players select an outcome, review the exact gross payout and multiplier,
-  and click **Bet 1 pt** for each point they want to wager. Prices update live
-  after every click (the app polls every 5 seconds).
+4. Players select an outcome, enter a stake of at least 100 points, review the
+  exact gross payout and multiplier, and confirm the wager. Prices update live
+  after every wager (the app polls every 5 seconds).
 5. When a match ends, the admin picks the winning outcome from the
   dropdown on that match's card — this resolves the match and pays out
    winners automatically.
@@ -100,9 +100,13 @@ deployed), copy `.env.example` to `.env` and set `VITE_API_URL`.
 
 Bigger `b` = more stable odds, but the betting engine can carry more exposure
 per match (max loss = `b * ln(number of outcomes)`). The admin form defaults
-to `b = 100`, which is better scaled to 100-point player balances. Bump `b`
-up for matches where you expect many wagers, or lower it when you want each
-one-point wager to move the odds more visibly.
+to `b = 5,000`, a reasonable starting point for 10,000-point accounts and
+many participants. For a two-outcome match, that implies a maximum LMSR
+exposure of about 3,466 points. Use `b = 1,000` for visibly faster odds
+movement and about 693 points of maximum exposure, or `b = 10,000` for very
+stable odds and about 6,931 points of maximum exposure. The right value also
+depends on how many wagers each player is likely to place on one match, not
+only on the number of registered players.
 
 ## Notes / things to decide before running it for real
 

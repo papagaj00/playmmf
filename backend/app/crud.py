@@ -1,15 +1,15 @@
 import hashlib
+import math
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
 from app import auth, lmsr, models
 
-STARTING_BALANCE = 100.0
+STARTING_BALANCE = 10000.0
 MIN_TRADE_SHARES = 1.0
 MIN_TRADE_AMOUNT = 0.01
-MIN_WAGER_AMOUNT = 0.01
-WAGER_UNIT = 1.0
+MIN_WAGER_AMOUNT = 100.0
 
 
 class InsufficientFunds(Exception):
@@ -291,8 +291,8 @@ def quote_trade(db: Session, market: models.Market, outcome_id: int, shares: flo
 def quote_wager(market: models.Market, outcome_id: int, amount: float) -> dict:
     if market.status != models.MarketStatus.OPEN:
         raise MarketNotOpen(f"Zápas {market.id} není otevřený pro sázení.")
-    if amount != WAGER_UNIT:
-        raise InvalidTrade(f"Sázka musí být přesně {WAGER_UNIT:.2f} bodu.")
+    if not math.isfinite(amount) or amount < MIN_WAGER_AMOUNT:
+        raise InvalidTrade(f"Sázka musí mít alespoň {MIN_WAGER_AMOUNT:.0f} bodů.")
 
     outcome = next((o for o in market.outcomes if o.id == outcome_id), None)
     if outcome is None:

@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 
-export default function TradeSheet({ outcome, quote, busy, onClose, onConfirm }) {
+export default function TradeSheet({ outcome, amount, balance, onAmountChange, quote, busy, onClose, onConfirm }) {
     if (!outcome) return null;
 
     return (
@@ -22,8 +22,37 @@ export default function TradeSheet({ outcome, quote, busy, onClose, onConfirm })
                     <strong>{(1 / outcome.price).toFixed(2)}</strong>
                 </div>
                 <div className="trade-sheet__unit">
-                    <span>Vklad</span>
-                    <strong>1 bod</strong>
+                    <div>
+                        <span className="trade-sheet__label">Vklad</span>
+                        <strong className="trade-sheet__amount-value">{amount.toLocaleString("cs-CZ")} bodů</strong>
+                    </div>
+                    <span className="trade-sheet__balance">Zůstatek {balance.toLocaleString("cs-CZ")} bodů</span>
+                </div>
+                <div className="stake-control">
+                    <div className="stake-control__input-row">
+                        <input
+                            className="stake-control__input"
+                            type="number"
+                            min="100"
+                            step="1"
+                            value={amount}
+                            onChange={(event) => onAmountChange(Number(event.target.value))}
+                            aria-label="Částka sázky v bodech"
+                        />
+                        <span>bodů</span>
+                    </div>
+                    <div className="stake-control__quick-picks">
+                        {[100, 500, 1000].map((value) => (
+                            <button key={value} type="button" className={amount === value ? "active" : ""} onClick={() => onAmountChange(value)}>
+                                {value.toLocaleString("cs-CZ")}
+                            </button>
+                        ))}
+                        {balance >= 100 && (
+                            <button type="button" className={amount === balance ? "active" : ""} onClick={() => onAmountChange(balance)}>
+                                Vše
+                            </button>
+                        )}
+                    </div>
                 </div>
                 {quote && (
                     <div className="trade-sheet__payout">
@@ -31,8 +60,8 @@ export default function TradeSheet({ outcome, quote, busy, onClose, onConfirm })
                         <strong>{quote.gross_payout.toFixed(2)} bodu</strong>
                     </div>
                 )}
-                <button className="trade-sheet__confirm" disabled={busy || !quote} onClick={onConfirm}>
-                    {busy ? "Odesílání…" : "Vsadit 1 bod"}
+                <button className="trade-sheet__confirm" disabled={busy || !quote || amount < 100 || amount > balance} onClick={onConfirm}>
+                    {busy ? "Odesílání…" : `Vsadit ${amount.toLocaleString("cs-CZ")} bodů`}
                 </button>
             </section>
         </div>
