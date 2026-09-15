@@ -11,6 +11,8 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
   const [verified, setVerified] = useState(false);
   const [checkingKey, setCheckingKey] = useState(false);
   const [points, setPoints] = useState(5);
+  const [users, setUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState("");
   const [email, setEmail] = useState("");
 
   useEffect(() => {
@@ -26,6 +28,7 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
         if (!cancelled) {
           setVerified(true);
           onAdminVerificationChange(true);
+          api.getAdminUsers(adminKey).then(setUsers).catch(() => setUsers([]));
         }
       })
       .catch(() => {
@@ -69,8 +72,13 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
     setBusy(true);
     setMessage(null);
     try {
-      const result = await api.adjustAllBalances(value, adminKey);
-      setMessage({ type: "success", text: `Upraveno účtů: ${result.updated_users}.` });
+      const result = await api.adjustBalances(value, selectedUserId, adminKey);
+      setMessage({
+        type: "success",
+        text: result.scope === "all"
+          ? `Upraveno účtů: ${result.updated_users}.`
+          : "Body hráče byly upraveny.",
+      });
       onMarketCreated();
     } catch (err) {
       setMessage({ type: "error", text: err.message });
@@ -206,10 +214,18 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
 
         <section className="admin-form" style={{ marginTop: 28 }}>
           <h3>Body hráčů</h3>
-          <p>Přidej nebo odeber stejný počet bodů všem hráčům.</p>
+          <p>Přidej nebo odeber body jednomu hráči nebo všem hráčům.</p>
           <form className="admin-inline-form" onSubmit={handleBalanceAdjustment}>
+            <select value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
+              <option value="">Všichni hráči</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.username} {user.is_banned ? "(zablokován)" : ""}
+                </option>
+              ))}
+            </select>
             <input type="number" step="0.01" value={points} onChange={(e) => setPoints(e.target.value)} />
-            <button className="btn-small" disabled={busy}>Upravit všem</button>
+            <button className="btn-small" disabled={busy}>Upravit body</button>
           </form>
         </section>
 

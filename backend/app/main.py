@@ -131,6 +131,11 @@ def verify_admin():
     return {"valid": True}
 
 
+@app.get("/admin/users", response_model=list[schemas.UserOut], dependencies=[Depends(require_admin)])
+def admin_users(db: Session = Depends(get_db)):
+    return crud.list_users(db)
+
+
 @app.post("/admin/factory-reset", dependencies=[Depends(require_admin)])
 def factory_reset(db: Session = Depends(get_db)):
     crud.factory_reset(db)
@@ -140,10 +145,16 @@ def factory_reset(db: Session = Depends(get_db)):
 @app.post("/admin/balance-adjustment", dependencies=[Depends(require_admin)])
 def balance_adjustment(payload: schemas.BalanceAdjustmentRequest, db: Session = Depends(get_db)):
     try:
-        count = crud.adjust_all_balances(db, payload.points)
+        count = crud.adjust_balances(db, payload.points, payload.user_id)
     except crud.InvalidBalanceAdjustment as error:
         raise HTTPException(status_code=400, detail=str(error))
-    return {"updated_users": count, "points": payload.points}
+    except crud.UserNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    return {
+        "updated_users": count,
+        "points": payload.points,
+        "scope": "all" if payload.user_id is None else "player",
+    }
 
 
 @app.post("/admin/users/ban", response_model=schemas.UserOut, dependencies=[Depends(require_admin)])

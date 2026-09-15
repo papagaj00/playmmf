@@ -405,6 +405,40 @@ def test_admin_balance_adjustment_ban_and_market_deletion():
     assert client.get(f"/markets/{market['id']}").status_code == 404
 
 
+def test_admin_can_adjust_one_player_or_all_players():
+    register("target-player")
+    register("other-player")
+
+    users = client.get("/admin/users", headers=ADMIN_HEADERS)
+    assert users.status_code == 200
+    target = next(user for user in users.json() if user["username"] == "target-player")
+
+    targeted = client.post(
+        "/admin/balance-adjustment",
+        json={"points": 250, "user_id": target["id"]},
+        headers=ADMIN_HEADERS,
+    )
+    assert targeted.status_code == 200
+    balances = {
+        row["username"]: row["balance"] for row in client.get("/leaderboard").json()
+    }
+    assert balances["target-player"] == 10250
+    assert balances["other-player"] == 10000
+
+    all_players = client.post(
+        "/admin/balance-adjustment",
+        json={"points": 100},
+        headers=ADMIN_HEADERS,
+    )
+    assert all_players.status_code == 200
+    assert all_players.json()["scope"] == "all"
+    balances = {
+        row["username"]: row["balance"] for row in client.get("/leaderboard").json()
+    }
+    assert balances["target-player"] == 10350
+    assert balances["other-player"] == 10100
+
+
 def test_factory_reset_requires_admin_key_and_deletes_all_data():
     register("reset-user")
     client.post(

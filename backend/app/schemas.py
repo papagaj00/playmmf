@@ -92,6 +92,7 @@ class MarketResolve(BaseModel):
 
 class BalanceAdjustmentRequest(BaseModel):
     points: float = Field(description="Positive adds points, negative removes points")
+    user_id: int | None = Field(default=None, gt=0)
 
 
 class BanUserRequest(BaseModel):

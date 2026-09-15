@@ -58,13 +58,14 @@ export const api = {
   getPositions: (username) => request(`/users/${encodeURIComponent(username)}/positions`),
   getTransactions: (username) => request(`/users/${encodeURIComponent(username)}/transactions`),
   verifyAdminKey: (adminKey) => request("/admin/verify", { adminKey }),
+  getAdminUsers: (adminKey) => request("/admin/users", { adminKey }),
   getLeaderboard: () => request("/leaderboard"),
   factoryReset: (adminKey) =>
     request("/admin/factory-reset", { method: "POST", adminKey }),
-  adjustAllBalances: (points, adminKey) =>
+  adjustBalances: (points, userId, adminKey) =>
     request("/admin/balance-adjustment", {
       method: "POST",
-      body: { points },
+      body: { points, user_id: userId || null },
       adminKey,
     }),
   banUser: (email, adminKey) =>

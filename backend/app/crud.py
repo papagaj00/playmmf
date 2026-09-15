@@ -148,10 +148,20 @@ def factory_reset(db: Session) -> None:
     db.commit()
 
 
-def adjust_all_balances(db: Session, points: float) -> int:
+def list_users(db: Session) -> list[models.User]:
+    return db.query(models.User).order_by(models.User.username.asc()).all()
+
+
+def adjust_balances(db: Session, points: float, user_id: int | None = None) -> int:
     if points == 0:
         raise InvalidBalanceAdjustment("Zadej nenulovou změnu bodů.")
-    users = db.query(models.User).all()
+    if user_id is None:
+        users = list_users(db)
+    else:
+        user = db.get(models.User, user_id)
+        if user is None:
+            raise UserNotFound("Vybraný hráč nebyl nalezen.")
+        users = [user]
     if points < 0 and any(user.balance + points < 0 for user in users):
         raise InvalidBalanceAdjustment("Tato změna by snížila některý účet pod nulu.")
     for user in users:
@@ -168,6 +178,10 @@ def adjust_all_balances(db: Session, points: float) -> int:
         )
     db.commit()
     return len(users)
+
+
+def adjust_all_balances(db: Session, points: float) -> int:
+    return adjust_balances(db, points)
 
 
 def set_user_banned(db: Session, email: str, banned: bool) -> models.User:
