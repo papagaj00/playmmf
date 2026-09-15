@@ -249,7 +249,17 @@ def delete_market(db: Session, market: models.Market) -> None:
         db.query(models.Position).filter(models.Position.outcome_id.in_(outcome_ids)).delete(
             synchronize_session=False
         )
-    db.delete(market)
+    # A resolved market points back to one of its outcomes. Clear that
+    # circular foreign-key reference before removing the outcomes.
+    market.resolved_outcome_id = None
+    db.flush()
+    if outcome_ids:
+        db.query(models.Outcome).filter(models.Outcome.id.in_(outcome_ids)).delete(
+            synchronize_session=False
+        )
+    db.query(models.Market).filter(models.Market.id == market.id).delete(
+        synchronize_session=False
+    )
     db.commit()
 
 
