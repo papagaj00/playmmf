@@ -1,4 +1,4 @@
-# playmff
+# playmmf
 
 A play-money betting app for a school soccer tournament. It uses an LMSR
 (Logarithmic Market Scoring Rule) engine to keep odds live and wagers

@@ -7,7 +7,7 @@ export default function TopBar({ username, balance, onLogout }) {
   return (
     <div className="topbar">
       <p className="topbar__brand">
-        playmff
+        playmmf
       </p>
       <div className="topbar__right">
         <button className="balance-chip" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen}>
