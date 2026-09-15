@@ -98,7 +98,31 @@ select {
 .topbar__right {
     position: relative;
     display: flex;
+    gap: 8px;
     align-items: center;
+}
+
+.help-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 44px;
+    min-height: 44px;
+    padding: 8px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.help-button:hover,
+.help-button[aria-expanded="true"] {
+    color: var(--accent);
+    border-color: var(--accent);
 }
 
 .balance-chip {
@@ -149,6 +173,51 @@ select {
     background: transparent;
     border: 0;
     text-align: left;
+}
+
+.help-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 40;
+    width: min(320px, calc(100vw - 32px));
+    padding: 16px 42px 16px 16px;
+    color: var(--text);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+.help-panel strong {
+    display: block;
+    margin-bottom: 6px;
+    font-family: var(--font-display);
+    font-size: 18px;
+}
+
+.help-panel p {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.help-panel a {
+    color: var(--accent);
+}
+
+.help-panel__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    color: var(--text-dim);
+    background: transparent;
+    border: 0;
 }
 
 .bottom-nav {
