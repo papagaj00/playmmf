@@ -13,8 +13,6 @@ export default function LeaderboardView({ entries }) {
               <th>#</th>
               <th>Hráč</th>
               <th>Hotovost</th>
-              <th>Hodnota sázek</th>
-              <th>Celkem</th>
             </tr>
           </thead>
           <tbody>
@@ -23,8 +21,6 @@ export default function LeaderboardView({ entries }) {
                 <td>{i + 1}</td>
                 <td>{row.username}</td>
                 <td className="num">{formatPoints(row.balance)}</td>
-                <td className="num">{formatPoints(row.portfolio_value)}</td>
-                <td className="num">{formatPoints(row.total_value)}</td>
               </tr>
             ))}
           </tbody>

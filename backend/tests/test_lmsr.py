@@ -2,7 +2,17 @@ import math
 
 import pytest
 
-from app.lmsr import Market, cost, cost_to_trade, max_loss, price, prices, shares_for_cost
+from app.lmsr import (
+    MIN_PRICE,
+    Market,
+    bounded_prices,
+    cost,
+    cost_to_trade,
+    max_loss,
+    price,
+    prices,
+    shares_for_cost,
+)
 
 
 def test_prices_start_at_uniform_when_no_trades():
@@ -14,6 +24,14 @@ def test_prices_start_at_uniform_when_no_trades():
 def test_prices_sum_to_one():
     q = [3.2, -1.5, 0.7]
     p = prices(q, b=5)
+    assert sum(p) == pytest.approx(1.0)
+
+
+def test_bounded_prices_limit_two_outcome_odds():
+    p = bounded_prices([100_000.0, 0.0], b=1)
+    assert p == pytest.approx([1 - MIN_PRICE, MIN_PRICE])
+    assert min(p) >= MIN_PRICE
+    assert max(p) <= 1 / 1.01
     assert sum(p) == pytest.approx(1.0)
 
 

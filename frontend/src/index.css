@@ -988,3 +988,7 @@ select {
         border-radius: 18px;
     }
 }
+
+.stat-row--single {
+    grid-template-columns: minmax(0, 260px);
+}

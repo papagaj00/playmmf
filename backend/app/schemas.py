@@ -54,8 +54,6 @@ class AuthResponse(BaseModel):
 class LeaderboardEntry(BaseModel):
     username: str
     balance: float
-    portfolio_value: float
-    total_value: float
 
 
 # ---------- Markets / Outcomes ----------
@@ -176,5 +174,4 @@ class PositionOut(BaseModel):
     shares: float
     potential_payout: float
     current_price: float
-    liquidation_value: float
     market_status: MarketStatus

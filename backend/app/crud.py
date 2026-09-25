@@ -199,25 +199,8 @@ def set_user_banned(db: Session, email: str, banned: bool) -> models.User:
 
 def get_leaderboard(db: Session) -> list[dict]:
     users = db.query(models.User).all()
-    board = []
-    for user in users:
-        portfolio_value = 0.0
-        for pos in user.positions:
-            if pos.shares == 0:
-                continue
-            market = pos.outcome.market
-            if market.status == models.MarketStatus.RESOLVED:
-                continue
-            portfolio_value += position_liquidation_value(pos)
-        board.append(
-            {
-                "username": user.username,
-                "balance": user.balance,
-                "portfolio_value": portfolio_value,
-                "total_value": user.balance + portfolio_value,
-            }
-        )
-    board.sort(key=lambda row: row["total_value"], reverse=True)
+    board = [{"username": user.username, "balance": user.balance} for user in users]
+    board.sort(key=lambda row: row["balance"], reverse=True)
     return board
 
 
@@ -269,18 +252,8 @@ def list_markets(db: Session) -> list[models.Market]:
 
 def market_prices(market: models.Market) -> dict[int, float]:
     quantities = [o.quantity for o in market.outcomes]
-    ps = lmsr.prices(quantities, market.b)
+    ps = lmsr.bounded_prices(quantities, market.b)
     return {o.id: p for o, p in zip(market.outcomes, ps)}
-
-
-def position_liquidation_value(position: models.Position) -> float:
-    """Return what selling this position would currently pay the holder."""
-    market = position.outcome.market
-    if market.status == models.MarketStatus.RESOLVED:
-        return 0.0
-    quantities = [o.quantity for o in market.outcomes]
-    idx = [o.id for o in market.outcomes].index(position.outcome_id)
-    return -lmsr.cost_to_trade(quantities, market.b, idx, -position.shares)
 
 
 def set_market_status(db: Session, market: models.Market, status: models.MarketStatus) -> models.Market:
@@ -298,11 +271,11 @@ def quote_trade(db: Session, market: models.Market, outcome_id: int, shares: flo
         raise KeyError("outcome not in this market")
     quantities = [o.quantity for o in market.outcomes]
     idx = [o.id for o in market.outcomes].index(outcome_id)
-    price_before = lmsr.price(quantities, market.b, idx)
+    price_before = lmsr.bounded_prices(quantities, market.b)[idx]
     cost = lmsr.cost_to_trade(quantities, market.b, idx, shares)
     _validate_trade(shares, cost)
     quantities[idx] += shares
-    price_after = lmsr.price(quantities, market.b, idx)
+    price_after = lmsr.bounded_prices(quantities, market.b)[idx]
     return {
         "outcome_id": outcome_id,
         "shares": shares,
@@ -324,10 +297,10 @@ def quote_wager(market: models.Market, outcome_id: int, amount: float) -> dict:
 
     quantities = [o.quantity for o in market.outcomes]
     idx = [o.id for o in market.outcomes].index(outcome_id)
-    price_before = lmsr.price(quantities, market.b, idx)
-    shares = lmsr.shares_for_cost(quantities, market.b, idx, amount)
+    price_before = lmsr.bounded_prices(quantities, market.b)[idx]
+    shares = amount / price_before
     quantities[idx] += shares
-    price_after = lmsr.price(quantities, market.b, idx)
+    price_after = lmsr.bounded_prices(quantities, market.b)[idx]
     return {
         "outcome_id": outcome_id,
         "amount": amount,
@@ -433,7 +406,7 @@ def execute_trade(
     db.refresh(outcome)
 
     new_quantities = [o.quantity for o in market.outcomes]
-    new_price = lmsr.price(new_quantities, market.b, idx)
+    new_price = lmsr.bounded_prices(new_quantities, market.b)[idx]
 
     return {
         "outcome_id": outcome_id,
@@ -490,7 +463,7 @@ def get_positions(db: Session, user: models.User) -> list[dict]:
             continue
         quantities = [o.quantity for o in market.outcomes]
         idx = [o.id for o in market.outcomes].index(pos.outcome_id)
-        current_price = lmsr.price(quantities, market.b, idx)
+        current_price = lmsr.bounded_prices(quantities, market.b)[idx]
         out.append(
             {
                 "market_id": market.id,
@@ -500,7 +473,6 @@ def get_positions(db: Session, user: models.User) -> list[dict]:
                 "shares": pos.shares,
                 "potential_payout": pos.shares,
                 "current_price": current_price,
-                "liquidation_value": position_liquidation_value(pos),
                 "market_status": market.status,
             }
         )

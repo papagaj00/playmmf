@@ -181,7 +181,7 @@ def test_full_trading_flow():
         row for row in client.get("/leaderboard").json()
         if row["username"] == "carol"
     )
-    assert carol_row["portfolio_value"] == 0
+    assert set(carol_row) == {"username", "balance"}
 
 
 def test_cannot_sell_more_shares_than_held():
@@ -258,6 +258,31 @@ def test_variable_wager_quote_and_execution():
     assert rejected.status_code == 400
 
 
+def test_wager_odds_are_bounded():
+    register("odds-bettor")
+    market = client.post(
+        "/markets",
+        json={"title": "Bounded odds", "b": 1, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+    outcome_a, outcome_b = market["outcomes"]
+
+    first_wager = client.post(
+        f"/markets/{market['id']}/wager",
+        json={"username": "odds-bettor", "outcome_id": outcome_a["id"], "amount": 100},
+    )
+    assert first_wager.status_code == 200
+
+    longshot_quote = client.post(
+        f"/markets/{market['id']}/wager/quote",
+        json={"outcome_id": outcome_b["id"], "amount": 100},
+    )
+    assert longshot_quote.status_code == 200
+    data = longshot_quote.json()
+    assert data["multiplier"] <= 101.0 + 1e-9
+    assert data["multiplier"] >= 1.01 - 1e-9
+
+
 def test_wager_rejects_insufficient_funds():
     register("poor-bettor")
     r = client.post(
@@ -294,8 +319,9 @@ def test_buying_does_not_create_immediate_liquidation_profit():
         row for row in client.get("/leaderboard").json()
         if row["username"] == "liquidation"
     )
-    assert user["balance"] + positions[0]["liquidation_value"] == pytest.approx(10000.0)
-    assert leaderboard["total_value"] == pytest.approx(10000.0)
+    assert user["balance"] < 10000.0
+    assert "liquidation_value" not in positions[0]
+    assert leaderboard["balance"] == pytest.approx(user["balance"])
 
 
 def test_cannot_trade_on_resolved_market():

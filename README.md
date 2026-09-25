@@ -94,19 +94,17 @@ deployed), copy `.env.example` to `.env` and set `VITE_API_URL`.
 5. When a match ends, the admin picks the winning outcome from the
   dropdown on that match's card — this resolves the match and pays out
    winners automatically.
-6. Leaderboard tab shows cash + holdings value for everyone.
+6. Leaderboard tab ranks players by cash balance only.
 
 ## Choosing `b` (the liquidity parameter)
 
-Bigger `b` = more stable odds, but the betting engine can carry more exposure
-per match (max loss = `b * ln(number of outcomes)`). The admin form defaults
-to `b = 5,000`, a reasonable starting point for 10,000-point accounts and
-many participants. For a two-outcome match, that implies a maximum LMSR
-exposure of about 3,466 points. Use `b = 1,000` for visibly faster odds
-movement and about 693 points of maximum exposure, or `b = 10,000` for very
-stable odds and about 6,931 points of maximum exposure. The right value also
-depends on how many wagers each player is likely to place on one match, not
-only on the number of registered players.
+Bigger `b` = more stable odds. The admin form defaults to `b = 5,000`, a
+reasonable starting point for 10,000-point accounts and many participants.
+Decimal odds are bounded between `1.01` and `101.00`, corresponding to share
+prices of approximately `0.9901` and `0.0099`. Use `b = 1,000` for faster odds
+movement or `b = 10,000` for steadier odds. The right value depends on how
+many wagers each player is likely to place on one match, not only on the
+number of registered players.
 
 ## Notes / things to decide before running it for real
 

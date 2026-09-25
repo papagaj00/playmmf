@@ -9,7 +9,7 @@ export default function LeaderboardTicker({ entries }) {
         <div className="ticker__item" key={row.username}>
           <span className="ticker__rank">{i + 1}</span>
           <span className="ticker__name">{row.username}</span>
-          <span className="ticker__value">{formatPoints(row.total_value)} bodů</span>
+          <span className="ticker__value">{formatPoints(row.balance)} bodů</span>
         </div>
       ))}
     </div>

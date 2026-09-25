@@ -7,24 +7,15 @@ const STATUS_LABELS = {
 };
 
 export default function PortfolioView({ user, positions, transactions }) {
-  const holdingsValue = positions.reduce((sum, p) => sum + p.liquidation_value, 0);
   const activity = transactions.filter((transaction) => transaction.type !== "payout");
 
   return (
     <div>
       <h2 className="section-title">Moje sázky</h2>
-      <div className="stat-row">
+      <div className="stat-row stat-row--single">
         <div className="stat-box">
           <div className="stat-box__label">Hotovost</div>
           <div className="stat-box__value">{formatPoints(user.balance)}</div>
-        </div>
-        <div className="stat-box">
-          <div className="stat-box__label">Hodnota sázek</div>
-          <div className="stat-box__value">{formatPoints(holdingsValue)}</div>
-        </div>
-        <div className="stat-box">
-          <div className="stat-box__label">Celkem</div>
-          <div className="stat-box__value">{formatPoints(user.balance + holdingsValue)}</div>
         </div>
       </div>
 
@@ -40,7 +31,6 @@ export default function PortfolioView({ user, positions, transactions }) {
               <th>Zápas</th>
               <th>Tip</th>
               <th>Možná výhra</th>
-              <th>Aktuální hodnota</th>
               <th>Stav</th>
             </tr>
           </thead>
@@ -50,7 +40,6 @@ export default function PortfolioView({ user, positions, transactions }) {
                 <td>{p.market_title}</td>
                 <td>{p.outcome_name}</td>
                 <td className="num">{formatPoints(p.potential_payout)}</td>
-                <td className="num">{formatPoints(p.liquidation_value)}</td>
                 <td>{STATUS_LABELS[p.market_status] || p.market_status}</td>
               </tr>
             ))}
