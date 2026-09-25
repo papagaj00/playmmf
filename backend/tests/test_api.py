@@ -227,7 +227,7 @@ def test_variable_wager_quote_and_execution():
     register("bettor")
     r = client.post(
         "/markets",
-        json={"title": "Wager market", "b": 20, "outcome_names": ["X", "Y"]},
+        json={"title": "Wager market", "b": 5000, "outcome_names": ["X", "Y"]},
         headers=ADMIN_HEADERS,
     )
     market_id = r.json()["id"]
@@ -271,6 +271,34 @@ def test_wager_uses_exact_lmsr_cost_inverse():
     )
     assert quote.status_code == 200
     assert quote.json()["shares"] == pytest.approx(13115.40630199832)
+
+
+def test_wager_rejects_trade_beyond_odds_cap():
+    register("cap-bettor")
+    market = client.post(
+        "/markets",
+        json={"title": "Odds cap", "b": 5000, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+    response = client.post(
+        f"/markets/{market['id']}/wager/quote",
+        json={"outcome_id": market["outcomes"][0]["id"], "amount": 10000},
+    )
+    assert response.status_code == 200
+    response = client.post(
+        f"/markets/{market['id']}/wager",
+        json={
+            "username": "cap-bettor",
+            "outcome_id": market["outcomes"][0]["id"],
+            "amount": 10000,
+        },
+    )
+    assert response.status_code == 200
+    response = client.post(
+        f"/markets/{market['id']}/wager/quote",
+        json={"outcome_id": market["outcomes"][0]["id"], "amount": 10000},
+    )
+    assert response.status_code == 400
 
 
 def test_wager_rejects_insufficient_funds():

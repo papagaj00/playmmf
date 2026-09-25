@@ -2,7 +2,19 @@ import math
 
 import pytest
 
-from app.lmsr import Market, cost, cost_to_trade, max_loss, price, prices, shares_for_cost
+from app.lmsr import (
+    MAX_PRICE,
+    MIN_PRICE,
+    Market,
+    cost,
+    cost_to_trade,
+    max_loss,
+    price,
+    prices,
+    prices_after_trade,
+    prices_within_odds_cap,
+    shares_for_cost,
+)
 
 
 def test_prices_start_at_uniform_when_no_trades():
@@ -15,6 +27,14 @@ def test_prices_sum_to_one():
     q = [3.2, -1.5, 0.7]
     p = prices(q, b=5)
     assert sum(p) == pytest.approx(1.0)
+
+
+def test_odds_cap_is_symmetric_and_trade_check_is_exact():
+    after = prices_after_trade([0.0, 0.0], b=5000, outcome_index=0, shares=13115.40630199832)
+    assert after[0] == pytest.approx(0.9323323584)
+    assert prices_within_odds_cap(after)
+    assert prices_within_odds_cap([MAX_PRICE, MIN_PRICE])
+    assert not prices_within_odds_cap([MAX_PRICE + 0.001, MIN_PRICE - 0.001])
 
 
 def test_buying_shares_raises_that_outcome_price():

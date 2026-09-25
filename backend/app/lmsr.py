@@ -43,6 +43,10 @@ import math
 from dataclasses import dataclass, field
 
 
+MIN_PRICE = 1 / 101
+MAX_PRICE = 1 - MIN_PRICE
+
+
 def _log_sum_exp(values: list[float]) -> float:
     """Numerically stable log(sum(exp(v) for v in values)).
 
@@ -123,6 +127,20 @@ def shares_for_cost(
     probability = price(quantities, b, outcome_index)
     growth = math.expm1(amount / b)
     return b * math.log1p(growth / probability)
+
+
+def prices_after_trade(
+    quantities: list[float], b: float, outcome_index: int, shares: float
+) -> list[float]:
+    """Return exact LMSR prices after a hypothetical share trade."""
+    next_quantities = list(quantities)
+    next_quantities[outcome_index] += shares
+    return prices(next_quantities, b)
+
+
+def prices_within_odds_cap(price_values: list[float]) -> bool:
+    """Whether every outcome stays between 1.01 and 101.00 decimal odds."""
+    return min(price_values) >= MIN_PRICE and max(price_values) <= MAX_PRICE
 
 
 def max_loss(b: float, num_outcomes: int) -> float:

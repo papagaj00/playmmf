@@ -102,9 +102,11 @@ Bigger `b` = more stable odds. The admin form defaults to `b = 5,000`, a
 reasonable starting point for 10,000-point accounts and many participants.
 The app uses the exact LMSR cost function for every wager: the stake is
 converted into the number of shares whose cost is exactly that stake. Use
-`b = 1,000` for faster odds movement or `b = 10,000` for steadier odds. The
-right value depends on how many wagers each player is likely to place on one
-match, not only on the number of registered players.
+`b = 1,000` for faster odds movement or `b = 10,000` for steadier odds. A
+trade is rejected if it would move any outcome outside the symmetric odds
+range `1.01` to `101.00`; this preserves exact LMSR math without inventing
+shares or payouts. The right `b` also depends on how many wagers each player
+is likely to place on one match, not only on the number of registered players.
 
 ## Notes / things to decide before running it for real
 
