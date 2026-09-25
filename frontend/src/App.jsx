@@ -23,6 +23,7 @@ export default function App() {
   const [transactions, setTransactions] = useState([]);
   const [error, setError] = useState(null);
   const [initialDataLoading, setInitialDataLoading] = useState(true);
+  const [maintenance, setMaintenance] = useState(false);
 
   useEffect(() => {
     api.me()
@@ -36,6 +37,13 @@ export default function App() {
   const refreshAll = useCallback(async () => {
     if (!username) return;
     try {
+      const system = await api.systemStatus();
+      setMaintenance(system.maintenance);
+      if (system.maintenance) {
+        setInitialDataLoading(false);
+        setError(null);
+        return;
+      }
       const [u, m, lb, pos, tx] = await Promise.all([
         api.getUser(username),
         api.listMarkets(),
@@ -92,6 +100,11 @@ export default function App() {
     setTab("markets");
   }
 
+  function handleMaintenanceChange(enabled) {
+    setMaintenance(enabled);
+    if (!enabled) refreshAll();
+  }
+
   if (!username) {
     return <LoginScreen onLogin={handleLogin} />;
   }
@@ -108,7 +121,17 @@ export default function App() {
           </div>
         )}
 
-        {tab === "markets" && (
+        {maintenance && !isAdmin && (
+          <div className="maintenance-screen" role="status">
+            <div className="maintenance-screen__mark">●</div>
+            <h2>Maintenance break</h2>
+            <p>The app is temporarily paused. Please check back later.</p>
+            <button className="btn-small" type="button" onClick={() => setTab("admin")}>
+              Admin access
+            </button>
+          </div>
+        )}
+        {!maintenance && tab === "markets" && (
           <MarketsView
             markets={markets}
             username={username}
@@ -120,10 +143,10 @@ export default function App() {
             adminKey={adminKey}
           />
         )}
-        {tab === "portfolio" && user && (
+        {!maintenance && tab === "portfolio" && user && (
           <PortfolioView user={user} positions={positions} transactions={transactions} />
         )}
-        {tab === "leaderboard" && <LeaderboardView entries={leaderboard} username={username} loading={initialDataLoading} />}
+        {!maintenance && tab === "leaderboard" && <LeaderboardView entries={leaderboard} username={username} loading={initialDataLoading} />}
         {tab === "admin" && (
           <AdminView
             adminKey={adminKey}
@@ -131,6 +154,8 @@ export default function App() {
             onAdminVerificationChange={setAdminVerified}
             onMarketCreated={refreshAll}
             onFactoryReset={handleFactoryReset}
+            maintenance={maintenance}
+            onMaintenanceChange={handleMaintenanceChange}
           />
         )}
       </div>

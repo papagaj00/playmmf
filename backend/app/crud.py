@@ -48,6 +48,24 @@ class ExistingMarketPosition(Exception):
     pass
 
 
+MAINTENANCE_KEY = "maintenance"
+
+
+def is_maintenance(db: Session) -> bool:
+    setting = db.get(models.AppSetting, MAINTENANCE_KEY)
+    return setting is not None and setting.value == "true"
+
+
+def set_maintenance(db: Session, enabled: bool) -> bool:
+    setting = db.get(models.AppSetting, MAINTENANCE_KEY)
+    if setting is None:
+        setting = models.AppSetting(key=MAINTENANCE_KEY)
+        db.add(setting)
+    setting.value = "true" if enabled else "false"
+    db.commit()
+    return enabled
+
+
 def _validate_trade(shares: float, amount: float) -> None:
     if abs(shares) < MIN_TRADE_SHARES:
         raise InvalidTrade(f"Sázka musí mít alespoň {MIN_TRADE_SHARES:g} jednotku.")

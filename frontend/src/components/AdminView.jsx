@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 
-export default function AdminView({ adminKey, setAdminKey, onAdminVerificationChange, onMarketCreated, onFactoryReset }) {
+export default function AdminView({ adminKey, setAdminKey, onAdminVerificationChange, onMarketCreated, onFactoryReset, maintenance, onMaintenanceChange }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [b, setB] = useState(5000);
@@ -58,6 +58,23 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
       onFactoryReset();
     } catch (err) {
       setMessage({ type: "error", text: err.message });
+      setBusy(false);
+    }
+  }
+
+  async function handleMaintenanceToggle() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await api.setMaintenance(!maintenance, adminKey);
+      onMaintenanceChange(result.maintenance);
+      setMessage({
+        type: "success",
+        text: result.maintenance ? "Maintenance break zapnut." : "Maintenance break vypnut.",
+      });
+    } catch (err) {
+      setMessage({ type: "error", text: err.message });
+    } finally {
       setBusy(false);
     }
   }
@@ -170,6 +187,14 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
       </div>
 
       {verified && <>
+        <section className="admin-form maintenance-control">
+          <h3>Maintenance break</h3>
+          <p>{maintenance ? "Hráči nyní nemají k aplikaci přístup." : "Pozastav přístup hráčům do aplikace."}</p>
+          <button type="button" className="btn-small" disabled={busy} onClick={handleMaintenanceToggle}>
+            {maintenance ? "Vypnout maintenance break" : "Zapnout maintenance break"}
+          </button>
+        </section>
+
         <form className="admin-form" onSubmit={handleSubmit}>
           <label>Název zápasu</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Semifinále: Lvi vs. Tygři" />

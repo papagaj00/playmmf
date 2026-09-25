@@ -576,6 +576,25 @@ def test_admin_can_adjust_one_player_or_all_players():
     assert balances["other-player"] == 10100
 
 
+def test_maintenance_break_blocks_player_routes_but_admin_can_toggle_it():
+    register("maintenance-user")
+    enabled = client.post(
+        "/admin/maintenance", json={"maintenance": True}, headers=ADMIN_HEADERS
+    )
+    assert enabled.status_code == 200
+    assert enabled.json() == {"maintenance": True}
+    assert client.get("/system/status").json() == {"maintenance": True}
+    assert client.get("/markets").status_code == 503
+    assert client.get("/leaderboard").status_code == 503
+    assert client.get("/admin/verify", headers=ADMIN_HEADERS).status_code == 200
+
+    disabled = client.post(
+        "/admin/maintenance", json={"maintenance": False}, headers=ADMIN_HEADERS
+    )
+    assert disabled.status_code == 200
+    assert client.get("/markets").status_code == 200
+
+
 def test_factory_reset_requires_admin_key_and_deletes_all_data():
     register("reset-user")
     client.post(

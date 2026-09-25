@@ -56,6 +56,10 @@ class LeaderboardEntry(BaseModel):
     balance: float
 
 
+class SystemStatus(BaseModel):
+    maintenance: bool
+
+
 # ---------- Markets / Outcomes ----------
 
 class MarketCreate(BaseModel):

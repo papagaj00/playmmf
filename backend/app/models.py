@@ -32,6 +32,13 @@ class TransactionType(str, enum.Enum):
     PAYOUT = "payout"  # payout after market resolution
 
 
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(100), primary_key=True)
+    value: Mapped[str] = mapped_column(String(255), default="")
+
+
 class User(Base):
     __tablename__ = "users"
 

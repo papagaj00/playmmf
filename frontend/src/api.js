@@ -54,10 +54,17 @@ export const api = {
     }
   },
   me: () => request("/auth/me"),
+  systemStatus: () => request("/system/status"),
   getUser: (username) => request(`/users/${encodeURIComponent(username)}`),
   getPositions: (username) => request(`/users/${encodeURIComponent(username)}/positions`),
   getTransactions: (username) => request(`/users/${encodeURIComponent(username)}/transactions`),
   verifyAdminKey: (adminKey) => request("/admin/verify", { adminKey }),
+  setMaintenance: (maintenance, adminKey) =>
+    request("/admin/maintenance", {
+      method: "POST",
+      body: { maintenance },
+      adminKey,
+    }),
   getAdminUsers: (adminKey) => request("/admin/users", { adminKey }),
   getLeaderboard: () => request("/leaderboard"),
   factoryReset: (adminKey) =>

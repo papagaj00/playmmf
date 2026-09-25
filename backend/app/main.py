@@ -37,6 +37,11 @@ def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
         raise HTTPException(status_code=403, detail="Je vyžadován administrátorský klíč.")
 
 
+def require_app_open(db: Session = Depends(get_db)) -> None:
+    if crud.is_maintenance(db):
+        raise HTTPException(status_code=503, detail="The app is on a maintenance break.")
+
+
 def _market_to_out(market: models.Market) -> schemas.MarketOut:
     price_map = crud.market_prices(market)
     return schemas.MarketOut(
@@ -101,28 +106,28 @@ def me(user: models.User = Depends(get_current_user)):
     return user
 
 
-@app.get("/users/{username}", response_model=schemas.UserOut)
+@app.get("/users/{username}", response_model=schemas.UserOut, dependencies=[Depends(require_app_open)])
 def get_user(username: str, user: models.User = Depends(get_current_user)):
     if username != user.username:
         raise HTTPException(status_code=403, detail="K tomuto účtu nemáš přístup.")
     return user
 
 
-@app.get("/users/{username}/positions", response_model=list[schemas.PositionOut])
+@app.get("/users/{username}/positions", response_model=list[schemas.PositionOut], dependencies=[Depends(require_app_open)])
 def get_user_positions(username: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     if username != user.username:
         raise HTTPException(status_code=403, detail="K tomuto účtu nemáš přístup.")
     return crud.get_positions(db, user)
 
 
-@app.get("/users/{username}/transactions", response_model=list[schemas.TransactionOut])
+@app.get("/users/{username}/transactions", response_model=list[schemas.TransactionOut], dependencies=[Depends(require_app_open)])
 def get_user_transactions(username: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     if username != user.username:
         raise HTTPException(status_code=403, detail="K tomuto účtu nemáš přístup.")
     return crud.get_transaction_history(db, user)
 
 
-@app.get("/leaderboard", response_model=list[schemas.LeaderboardEntry])
+@app.get("/leaderboard", response_model=list[schemas.LeaderboardEntry], dependencies=[Depends(require_app_open)])
 def leaderboard(db: Session = Depends(get_db)):
     return crud.get_leaderboard(db)
 
@@ -130,6 +135,16 @@ def leaderboard(db: Session = Depends(get_db)):
 @app.get("/admin/verify", dependencies=[Depends(require_admin)])
 def verify_admin():
     return {"valid": True}
+
+
+@app.get("/system/status", response_model=schemas.SystemStatus)
+def system_status(db: Session = Depends(get_db)):
+    return {"maintenance": crud.is_maintenance(db)}
+
+
+@app.post("/admin/maintenance", response_model=schemas.SystemStatus, dependencies=[Depends(require_admin)])
+def set_maintenance(payload: schemas.SystemStatus, db: Session = Depends(get_db)):
+    return {"maintenance": crud.set_maintenance(db, payload.maintenance)}
 
 
 @app.get("/admin/users", response_model=list[schemas.UserOut], dependencies=[Depends(require_admin)])
@@ -184,12 +199,12 @@ def create_market(payload: schemas.MarketCreate, db: Session = Depends(get_db)):
     return _market_to_out(market)
 
 
-@app.get("/markets", response_model=list[schemas.MarketOut])
+@app.get("/markets", response_model=list[schemas.MarketOut], dependencies=[Depends(require_app_open)])
 def list_markets(db: Session = Depends(get_db)):
     return [_market_to_out(m) for m in crud.list_markets(db)]
 
 
-@app.get("/markets/{market_id}", response_model=schemas.MarketOut)
+@app.get("/markets/{market_id}", response_model=schemas.MarketOut, dependencies=[Depends(require_app_open)])
 def get_market(market_id: int, db: Session = Depends(get_db)):
     market = crud.get_market(db, market_id)
     if not market:
@@ -200,7 +215,7 @@ def get_market(market_id: int, db: Session = Depends(get_db)):
 @app.post(
     "/markets/{market_id}/status",
     response_model=schemas.MarketOut,
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_admin), Depends(require_app_open)],
 )
 def set_market_status(market_id: int, status: models.MarketStatus, db: Session = Depends(get_db)):
     market = crud.get_market(db, market_id)
@@ -238,7 +253,7 @@ def resolve_market(market_id: int, payload: schemas.MarketResolve, db: Session =
 
 # ---------- Trading ----------
 
-@app.post("/markets/{market_id}/quote", response_model=schemas.QuoteResponse)
+@app.post("/markets/{market_id}/quote", response_model=schemas.QuoteResponse, dependencies=[Depends(require_app_open)])
 def quote_trade(market_id: int, payload: schemas.QuoteRequest, db: Session = Depends(get_db)):
     market = crud.get_market(db, market_id)
     if not market:
@@ -252,7 +267,7 @@ def quote_trade(market_id: int, payload: schemas.QuoteRequest, db: Session = Dep
     return result
 
 
-@app.post("/markets/{market_id}/wager/quote", response_model=schemas.WagerQuoteResponse)
+@app.post("/markets/{market_id}/wager/quote", response_model=schemas.WagerQuoteResponse, dependencies=[Depends(require_app_open)])
 def quote_wager(
     market_id: int,
     payload: schemas.WagerRequest,
@@ -268,7 +283,7 @@ def quote_wager(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/markets/{market_id}/trade", response_model=schemas.TradeResponse)
+@app.post("/markets/{market_id}/trade", response_model=schemas.TradeResponse, dependencies=[Depends(require_app_open)])
 def execute_trade(market_id: int, payload: schemas.TradeRequest, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     market = crud.get_market(db, market_id)
     if not market:
@@ -288,7 +303,7 @@ def execute_trade(market_id: int, payload: schemas.TradeRequest, db: Session = D
     return result
 
 
-@app.post("/markets/{market_id}/wager", response_model=schemas.WagerResponse)
+@app.post("/markets/{market_id}/wager", response_model=schemas.WagerResponse, dependencies=[Depends(require_app_open)])
 def execute_wager(market_id: int, payload: schemas.WagerRequest, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     market = crud.get_market(db, market_id)
     if not market:
