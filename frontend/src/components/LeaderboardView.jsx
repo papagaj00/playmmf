@@ -1,13 +1,16 @@
 import { formatPoints } from "../format";
+import LoadingState from "./LoadingState";
 
-export default function LeaderboardView({ entries }) {
+export default function LeaderboardView({ entries, loading }) {
   return (
-    <div>
+    <div className="leaderboard-view">
       <h2 className="section-title">Žebříček</h2>
-      {entries.length === 0 ? (
+      {loading ? (
+        <LoadingState label="Načítám žebříček…" />
+      ) : entries.length === 0 ? (
         <div className="empty-state">Zatím zde nejsou žádní hráči.</div>
       ) : (
-        <table className="positions-table">
+        <table className="positions-table leaderboard-table">
           <thead>
             <tr>
               <th>#</th>

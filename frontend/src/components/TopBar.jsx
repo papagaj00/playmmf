@@ -39,8 +39,8 @@ export default function TopBar({ username, balance, onLogout }) {
             </button>
             <strong>Potřebujete pomoc?</strong>
             <p>
-              Máte požadavek nebo jste narazili na problém? Napište nám na{" "}
-              <a href="mailto:prokop_jan@gbn.cz">prokop_jan@gbn.cz</a>.
+              Máte požadavek nebo jste narazili na problém? Ozvěte se nám na Instagramu{" "}
+              <a href="https://instagram.com/honza_proky7" target="_blank" rel="noreferrer">@honza_proky7</a>.
             </p>
           </div>
         )}

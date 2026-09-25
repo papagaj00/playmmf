@@ -1,13 +1,15 @@
 import MarketCard from "./MarketCard";
+import LoadingState from "./LoadingState";
 
-export default function MarketsView({ markets, username, balance, onChanged, isAdmin, adminKey }) {
+export default function MarketsView({ markets, username, balance, loading, onChanged, isAdmin, adminKey }) {
   const open = markets.filter((m) => m.status !== "resolved");
   const resolved = markets.filter((m) => m.status === "resolved");
 
   return (
     <div>
       <h2 className="section-title">Zápasy</h2>
-      {markets.length === 0 && <div className="empty-state">Zatím nejsou vytvořené žádné zápasy.</div>}
+      {loading && <LoadingState label="Načítám zápasy…" />}
+      {!loading && markets.length === 0 && <div className="empty-state">Zatím nejsou vytvořené žádné zápasy.</div>}
 
       {open.map((m) => (
         <MarketCard

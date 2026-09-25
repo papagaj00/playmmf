@@ -22,6 +22,7 @@ export default function App() {
   const [positions, setPositions] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [error, setError] = useState(null);
+  const [initialDataLoading, setInitialDataLoading] = useState(true);
 
   useEffect(() => {
     api.me()
@@ -50,6 +51,8 @@ export default function App() {
       setError(null);
     } catch (err) {
       setError(err.message || "Server není dostupný");
+    } finally {
+      setInitialDataLoading(false);
     }
   }, [username]);
 
@@ -64,6 +67,7 @@ export default function App() {
   }, [adminKey]);
 
   function handleLogin(currentUser) {
+    setInitialDataLoading(true);
     setUser(currentUser);
     setUsername(currentUser.username);
   }
@@ -109,6 +113,7 @@ export default function App() {
             markets={markets}
             username={username}
             balance={user ? user.balance : 0}
+            loading={initialDataLoading}
             onChanged={refreshAll}
             isAdmin={isAdmin}
             adminKey={adminKey}
@@ -117,7 +122,7 @@ export default function App() {
         {tab === "portfolio" && user && (
           <PortfolioView user={user} positions={positions} transactions={transactions} />
         )}
-        {tab === "leaderboard" && <LeaderboardView entries={leaderboard} />}
+        {tab === "leaderboard" && <LeaderboardView entries={leaderboard} loading={initialDataLoading} />}
         {tab === "admin" && (
           <AdminView
             adminKey={adminKey}
