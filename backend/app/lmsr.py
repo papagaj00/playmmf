@@ -43,10 +43,6 @@ import math
 from dataclasses import dataclass, field
 
 
-MIN_PRICE = 1 / 101
-MAX_PRICE = 1 / 1.01
-
-
 def _log_sum_exp(values: list[float]) -> float:
     """Numerically stable log(sum(exp(v) for v in values)).
 
@@ -85,28 +81,6 @@ def prices(quantities: list[float], b: float) -> list[float]:
     exps = [math.exp(s - m) for s in scaled]
     total = sum(exps)
     return [e / total for e in exps]
-
-
-def bounded_prices(quantities: list[float], b: float) -> list[float]:
-    """Return prices with decimal odds bounded to 1.01 through 101.00.
-
-    The lower bound is applied while preserving a probability sum of one.
-    For two outcomes this produces exactly ``[1/101, 100/101]`` at the
-    extremes; markets with more outcomes share the remaining probability.
-    """
-    raw_prices = prices(quantities, b)
-    floored = [max(price, MIN_PRICE) for price in raw_prices]
-    excess = sum(floored) - 1.0
-    if excess <= 0:
-        return floored
-    available = [price - MIN_PRICE for price in floored]
-    available_total = sum(available)
-    if available_total == 0:
-        return [1 / len(raw_prices)] * len(raw_prices)
-    return [
-        price - excess * room / available_total
-        for price, room in zip(floored, available)
-    ]
 
 
 def price(quantities: list[float], b: float, outcome_index: int) -> float:

@@ -100,11 +100,11 @@ deployed), copy `.env.example` to `.env` and set `VITE_API_URL`.
 
 Bigger `b` = more stable odds. The admin form defaults to `b = 5,000`, a
 reasonable starting point for 10,000-point accounts and many participants.
-Decimal odds are bounded between `1.01` and `101.00`, corresponding to share
-prices of approximately `0.9901` and `0.0099`. Use `b = 1,000` for faster odds
-movement or `b = 10,000` for steadier odds. The right value depends on how
-many wagers each player is likely to place on one match, not only on the
-number of registered players.
+The app uses the exact LMSR cost function for every wager: the stake is
+converted into the number of shares whose cost is exactly that stake. Use
+`b = 1,000` for faster odds movement or `b = 10,000` for steadier odds. The
+right value depends on how many wagers each player is likely to place on one
+match, not only on the number of registered players.
 
 ## Notes / things to decide before running it for real
 

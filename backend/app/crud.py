@@ -252,7 +252,7 @@ def list_markets(db: Session) -> list[models.Market]:
 
 def market_prices(market: models.Market) -> dict[int, float]:
     quantities = [o.quantity for o in market.outcomes]
-    ps = lmsr.bounded_prices(quantities, market.b)
+    ps = lmsr.prices(quantities, market.b)
     return {o.id: p for o, p in zip(market.outcomes, ps)}
 
 
@@ -271,11 +271,11 @@ def quote_trade(db: Session, market: models.Market, outcome_id: int, shares: flo
         raise KeyError("outcome not in this market")
     quantities = [o.quantity for o in market.outcomes]
     idx = [o.id for o in market.outcomes].index(outcome_id)
-    price_before = lmsr.bounded_prices(quantities, market.b)[idx]
+    price_before = lmsr.price(quantities, market.b, idx)
     cost = lmsr.cost_to_trade(quantities, market.b, idx, shares)
     _validate_trade(shares, cost)
     quantities[idx] += shares
-    price_after = lmsr.bounded_prices(quantities, market.b)[idx]
+    price_after = lmsr.price(quantities, market.b, idx)
     return {
         "outcome_id": outcome_id,
         "shares": shares,
@@ -297,10 +297,10 @@ def quote_wager(market: models.Market, outcome_id: int, amount: float) -> dict:
 
     quantities = [o.quantity for o in market.outcomes]
     idx = [o.id for o in market.outcomes].index(outcome_id)
-    price_before = lmsr.bounded_prices(quantities, market.b)[idx]
-    shares = amount / price_before
+    price_before = lmsr.price(quantities, market.b, idx)
+    shares = lmsr.shares_for_cost(quantities, market.b, idx, amount)
     quantities[idx] += shares
-    price_after = lmsr.bounded_prices(quantities, market.b)[idx]
+    price_after = lmsr.price(quantities, market.b, idx)
     return {
         "outcome_id": outcome_id,
         "amount": amount,
@@ -406,7 +406,7 @@ def execute_trade(
     db.refresh(outcome)
 
     new_quantities = [o.quantity for o in market.outcomes]
-    new_price = lmsr.bounded_prices(new_quantities, market.b)[idx]
+    new_price = lmsr.price(new_quantities, market.b, idx)
 
     return {
         "outcome_id": outcome_id,
@@ -463,7 +463,7 @@ def get_positions(db: Session, user: models.User) -> list[dict]:
             continue
         quantities = [o.quantity for o in market.outcomes]
         idx = [o.id for o in market.outcomes].index(pos.outcome_id)
-        current_price = lmsr.bounded_prices(quantities, market.b)[idx]
+        current_price = lmsr.price(quantities, market.b, idx)
         out.append(
             {
                 "market_id": market.id,

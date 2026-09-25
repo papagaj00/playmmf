@@ -258,29 +258,19 @@ def test_variable_wager_quote_and_execution():
     assert rejected.status_code == 400
 
 
-def test_wager_odds_are_bounded():
-    register("odds-bettor")
+def test_wager_uses_exact_lmsr_cost_inverse():
+    register("exact-bettor")
     market = client.post(
         "/markets",
-        json={"title": "Bounded odds", "b": 1, "outcome_names": ["A", "B"]},
+        json={"title": "Exact wager", "b": 5000, "outcome_names": ["A", "B"]},
         headers=ADMIN_HEADERS,
     ).json()
-    outcome_a, outcome_b = market["outcomes"]
-
-    first_wager = client.post(
-        f"/markets/{market['id']}/wager",
-        json={"username": "odds-bettor", "outcome_id": outcome_a["id"], "amount": 100},
-    )
-    assert first_wager.status_code == 200
-
-    longshot_quote = client.post(
+    quote = client.post(
         f"/markets/{market['id']}/wager/quote",
-        json={"outcome_id": outcome_b["id"], "amount": 100},
+        json={"outcome_id": market["outcomes"][0]["id"], "amount": 10000},
     )
-    assert longshot_quote.status_code == 200
-    data = longshot_quote.json()
-    assert data["multiplier"] <= 101.0 + 1e-9
-    assert data["multiplier"] >= 1.01 - 1e-9
+    assert quote.status_code == 200
+    assert quote.json()["shares"] == pytest.approx(13115.40630199832)
 
 
 def test_wager_rejects_insufficient_funds():
