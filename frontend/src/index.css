@@ -83,6 +83,9 @@ select {
 }
 
 .topbar__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     margin: 0;
     color: var(--text);
     font-family: var(--font-display);
@@ -1081,4 +1084,27 @@ select {
 .maintenance-screen p {
     max-width: 360px;
     color: var(--text-dim);
+}
+
+.topbar__brand img {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+}
+
+.brand-lockup {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.brand-lockup img {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+}
+
+.brand-lockup h1 {
+    margin: 0;
 }

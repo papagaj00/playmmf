@@ -29,7 +29,10 @@ export default function LoginScreen({ onLogin }) {
   return (
     <div className="login-screen">
       <form className="login-card" onSubmit={handleSubmit}>
-        <h1>playmmf</h1>
+        <div className="brand-lockup">
+          <img src="/playmmf-logo.svg" alt="playmmf" />
+          <h1>playmmf</h1>
+        </div>
         <p>{registering ? "Vytvoř si účet pomocí školního e-mailu a sázej na výsledky turnaje." : "Přihlas se školním e-mailem a pokračuj ve svých sázkách."}</p>
         <div className="auth-mode-toggle">
           <button type="button" className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>Přihlášení</button>

@@ -8,9 +8,10 @@ export default function TopBar({ username, balance, onLogout }) {
 
   return (
     <div className="topbar">
-      <p className="topbar__brand">
-        playmmf
-      </p>
+      <div className="topbar__brand">
+        <img src="/playmmf-logo.svg" alt="playmmf" />
+        <span>playmmf</span>
+      </div>
       <div className="topbar__right">
         <button
           className="help-button"
