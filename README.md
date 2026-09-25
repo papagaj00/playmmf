@@ -107,6 +107,8 @@ trade is rejected if it would move any outcome outside the symmetric odds
 range `1.01` to `101.00`; this preserves exact LMSR math without inventing
 shares or payouts. The right `b` also depends on how many wagers each player
 is likely to place on one match, not only on the number of registered players.
+Wagers continue to be accepted at the capped odds when the raw LMSR state
+would go beyond the public range; no payout can exceed `101.00×` the stake.
 
 ## Notes / things to decide before running it for real
 

@@ -273,7 +273,7 @@ def test_wager_uses_exact_lmsr_cost_inverse():
     assert quote.json()["shares"] == pytest.approx(13115.40630199832)
 
 
-def test_wager_rejects_trade_beyond_odds_cap():
+def test_wager_accepts_trade_at_odds_cap():
     register("cap-bettor")
     market = client.post(
         "/markets",
@@ -298,7 +298,8 @@ def test_wager_rejects_trade_beyond_odds_cap():
         f"/markets/{market['id']}/wager/quote",
         json={"outcome_id": market["outcomes"][0]["id"], "amount": 10000},
     )
-    assert response.status_code == 400
+    assert response.status_code == 200
+    assert response.json()["multiplier"] <= 101.0
 
 
 def test_wager_rejects_insufficient_funds():

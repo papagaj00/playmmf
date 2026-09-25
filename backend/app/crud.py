@@ -252,7 +252,7 @@ def list_markets(db: Session) -> list[models.Market]:
 
 def market_prices(market: models.Market) -> dict[int, float]:
     quantities = [o.quantity for o in market.outcomes]
-    ps = lmsr.prices(quantities, market.b)
+    ps = lmsr.capped_prices(quantities, market.b)
     return {o.id: p for o, p in zip(market.outcomes, ps)}
 
 
@@ -271,13 +271,12 @@ def quote_trade(db: Session, market: models.Market, outcome_id: int, shares: flo
         raise KeyError("outcome not in this market")
     quantities = [o.quantity for o in market.outcomes]
     idx = [o.id for o in market.outcomes].index(outcome_id)
-    price_before = lmsr.price(quantities, market.b, idx)
+    price_before = lmsr.capped_price(lmsr.price(quantities, market.b, idx))
     cost = lmsr.cost_to_trade(quantities, market.b, idx, shares)
     _validate_trade(shares, cost)
-    prices_after = lmsr.prices_after_trade(quantities, market.b, idx, shares)
-    if not lmsr.prices_within_odds_cap(prices_after):
-        raise InvalidTrade("Tento obchod by překročil povolený kurz 1.01 až 101.00.")
-    price_after = prices_after[idx]
+    price_after = lmsr.capped_price(
+        lmsr.prices_after_trade(quantities, market.b, idx, shares)[idx]
+    )
     return {
         "outcome_id": outcome_id,
         "shares": shares,
@@ -299,12 +298,17 @@ def quote_wager(market: models.Market, outcome_id: int, amount: float) -> dict:
 
     quantities = [o.quantity for o in market.outcomes]
     idx = [o.id for o in market.outcomes].index(outcome_id)
-    price_before = lmsr.price(quantities, market.b, idx)
+    raw_price_before = lmsr.price(quantities, market.b, idx)
+    price_before = lmsr.capped_price(raw_price_before)
     shares = lmsr.shares_for_cost(quantities, market.b, idx, amount)
     prices_after = lmsr.prices_after_trade(quantities, market.b, idx, shares)
-    if not lmsr.prices_within_odds_cap(prices_after):
-        raise InvalidTrade("Tato sázka by překročila povolený kurz 1.01 až 101.00.")
-    price_after = prices_after[idx]
+    if lmsr.prices_within_odds_cap(prices_after):
+        price_after = prices_after[idx]
+    else:
+        shares = amount / price_before
+        price_after = lmsr.capped_price(
+            lmsr.prices_after_trade(quantities, market.b, idx, shares)[idx]
+        )
     return {
         "outcome_id": outcome_id,
         "amount": amount,
@@ -380,10 +384,6 @@ def execute_trade(
     idx = [o.id for o in market.outcomes].index(outcome_id)
     amount = lmsr.cost_to_trade(quantities, market.b, idx, shares)
     _validate_trade(shares, amount)
-
-    prices_after = lmsr.prices_after_trade(quantities, market.b, idx, shares)
-    if not lmsr.prices_within_odds_cap(prices_after):
-        raise InvalidTrade("Tento obchod by překročil povolený kurz 1.01 až 101.00.")
 
     if amount > 0 and amount > user.balance:
         raise InsufficientFunds(
@@ -471,7 +471,7 @@ def get_positions(db: Session, user: models.User) -> list[dict]:
             continue
         quantities = [o.quantity for o in market.outcomes]
         idx = [o.id for o in market.outcomes].index(pos.outcome_id)
-        current_price = lmsr.price(quantities, market.b, idx)
+        current_price = lmsr.capped_price(lmsr.price(quantities, market.b, idx))
         out.append(
             {
                 "market_id": market.id,

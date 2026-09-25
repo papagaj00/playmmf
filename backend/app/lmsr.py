@@ -92,6 +92,16 @@ def price(quantities: list[float], b: float, outcome_index: int) -> float:
     return prices(quantities, b)[outcome_index]
 
 
+def capped_price(value: float) -> float:
+    """Apply the public sportsbook odds bounds to one raw probability."""
+    return min(MAX_PRICE, max(MIN_PRICE, value))
+
+
+def capped_prices(quantities: list[float], b: float) -> list[float]:
+    """Return public probabilities with odds bounded to 1.01..101.00."""
+    return [capped_price(value) for value in prices(quantities, b)]
+
+
 def cost_to_trade(
     quantities: list[float], b: float, outcome_index: int, shares: float
 ) -> float:
