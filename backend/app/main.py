@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app import auth, crud, models, schemas
-from app.database import Base, ensure_auth_columns, engine, get_db
+from app.database import Base, ensure_auth_columns, ensure_pool_columns, engine, get_db
 
 # Simple shared-secret admin auth. Configure ADMIN_KEY in every environment.
 ADMIN_KEY = os.environ.get("ADMIN_KEY")
@@ -17,6 +17,7 @@ CORS_ORIGINS = [
 
 Base.metadata.create_all(bind=engine)
 ensure_auth_columns()
+ensure_pool_columns()
 
 app = FastAPI(title="playmmf")
 
@@ -252,13 +253,18 @@ def quote_trade(market_id: int, payload: schemas.QuoteRequest, db: Session = Dep
 
 
 @app.post("/markets/{market_id}/wager/quote", response_model=schemas.WagerQuoteResponse)
-def quote_wager(market_id: int, payload: schemas.WagerRequest, db: Session = Depends(get_db)):
+def quote_wager(
+    market_id: int,
+    payload: schemas.WagerRequest,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     market = crud.get_market(db, market_id)
     if not market:
         raise HTTPException(status_code=404, detail="Zápas nebyl nalezen.")
     try:
-        return crud.quote_wager(market, payload.outcome_id, payload.amount)
-    except (KeyError, crud.InvalidTrade, crud.MarketNotOpen) as e:
+        return crud.quote_wager(db, user, market, payload.outcome_id, payload.amount)
+    except (KeyError, crud.InvalidTrade, crud.MarketNotOpen, crud.ExistingMarketPosition) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -293,7 +299,7 @@ def execute_wager(market_id: int, payload: schemas.WagerRequest, db: Session = D
         raise HTTPException(status_code=400, detail=str(e))
     except crud.InsufficientFunds as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except (KeyError, crud.InvalidTrade) as e:
+    except (KeyError, crud.InvalidTrade, crud.ExistingMarketPosition) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 

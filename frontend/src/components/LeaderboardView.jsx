@@ -1,7 +1,7 @@
 import { formatPoints } from "../format";
 import LoadingState from "./LoadingState";
 
-export default function LeaderboardView({ entries, loading }) {
+export default function LeaderboardView({ entries, username, loading }) {
   return (
     <div className="leaderboard-view">
       <h2 className="section-title">Žebříček</h2>
@@ -20,7 +20,7 @@ export default function LeaderboardView({ entries, loading }) {
           </thead>
           <tbody>
             {entries.map((row, i) => (
-              <tr key={row.username}>
+              <tr key={row.username} className={row.username === username ? "leaderboard-row--current" : ""}>
                 <td>{i + 1}</td>
                 <td>{row.username}</td>
                 <td className="num">{formatPoints(row.balance)}</td>

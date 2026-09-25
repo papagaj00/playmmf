@@ -70,7 +70,7 @@ class Market(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(String(1000), default="")
-    b: Mapped[float] = mapped_column(Float)  # LMSR liquidity parameter
+    b: Mapped[float] = mapped_column(Float)  # initial pool value L per outcome
     status: Mapped[MarketStatus] = mapped_column(
         Enum(MarketStatus), default=MarketStatus.OPEN
     )
@@ -92,7 +92,7 @@ class Outcome(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     market_id: Mapped[int] = mapped_column(ForeignKey("markets.id"))
     name: Mapped[str] = mapped_column(String(200))
-    quantity: Mapped[float] = mapped_column(Float, default=0.0)  # LMSR q_i
+    quantity: Mapped[float] = mapped_column(Float, default=0.0)  # pool value q_i
 
     market: Mapped["Market"] = relationship(
         back_populates="outcomes", foreign_keys=[market_id]
@@ -101,7 +101,7 @@ class Outcome(Base):
 
 
 class Position(Base):
-    """How many shares of one outcome one user currently holds."""
+    """One user's stake and locked payout for an outcome."""
 
     __tablename__ = "positions"
     __table_args__ = (UniqueConstraint("user_id", "outcome_id", name="uq_user_outcome"),)
@@ -109,7 +109,9 @@ class Position(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     outcome_id: Mapped[int] = mapped_column(ForeignKey("outcomes.id"))
-    shares: Mapped[float] = mapped_column(Float, default=0.0)
+    shares: Mapped[float] = mapped_column(Float, default=0.0)  # legacy LMSR data
+    stake_amount: Mapped[float] = mapped_column(Float, default=0.0)
+    locked_payout: Mapped[float] = mapped_column(Float, default=0.0)
 
     user: Mapped["User"] = relationship(back_populates="positions")
     outcome: Mapped["Outcome"] = relationship(back_populates="positions")
@@ -126,6 +128,7 @@ class Transaction(Base):
     type: Mapped[TransactionType] = mapped_column(Enum(TransactionType))
     shares: Mapped[float] = mapped_column(Float, default=0.0)  # + buy / - sell
     amount: Mapped[float] = mapped_column(Float)  # points paid (+) or received (-)
+    locked_payout: Mapped[float | None] = mapped_column(Float, nullable=True)
     balance_after: Mapped[float] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 

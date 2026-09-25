@@ -61,7 +61,7 @@ class LeaderboardEntry(BaseModel):
 class MarketCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = ""
-    b: float = Field(gt=0, description="LMSR liquidity parameter")
+    b: float = Field(gt=0, description="Initial pool value per outcome")
     outcome_names: list[str] = Field(min_length=2)
 
 
@@ -125,10 +125,11 @@ class WagerRequest(BaseModel):
 class WagerQuoteResponse(BaseModel):
     outcome_id: int
     amount: float
-    shares: float
+    stake_amount: float
     price_before: float
     price_after: float
     gross_payout: float
+    locked_payout: float
     multiplier: float
 
 
@@ -171,7 +172,9 @@ class PositionOut(BaseModel):
     market_title: str
     outcome_id: int
     outcome_name: str
-    shares: float
+    shares: float = 0.0  # legacy LMSR compatibility only
+    stake_amount: float
     potential_payout: float
+    locked_payout: float
     current_price: float
     market_status: MarketStatus

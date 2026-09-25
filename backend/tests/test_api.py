@@ -240,8 +240,8 @@ def test_variable_wager_quote_and_execution():
     assert quote.status_code == 200
     quote_data = quote.json()
     assert quote_data["amount"] == 100
-    assert quote_data["gross_payout"] == pytest.approx(quote_data["shares"])
-    assert quote_data["multiplier"] == pytest.approx(quote_data["shares"] / 100)
+    assert quote_data["gross_payout"] == pytest.approx(quote_data["locked_payout"])
+    assert quote_data["multiplier"] == pytest.approx(quote_data["locked_payout"] / 100)
 
     wager = client.post(
         f"/markets/{market_id}/wager",
@@ -249,13 +249,56 @@ def test_variable_wager_quote_and_execution():
     )
     assert wager.status_code == 200
     assert wager.json()["new_balance"] == pytest.approx(9900)
-    assert wager.json()["shares"] == pytest.approx(quote_data["shares"])
+    assert wager.json()["stake_amount"] == pytest.approx(100)
 
     rejected = client.post(
         f"/markets/{market_id}/wager/quote",
         json={"outcome_id": outcome_id, "amount": 50},
     )
     assert rejected.status_code == 400
+
+
+def test_pool_wager_locks_payout_and_blocks_cross_outcome_hedging():
+    register("pool-player")
+    market = client.post(
+        "/markets",
+        json={"title": "Pool market", "b": 5000, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+    outcome_a, outcome_b = market["outcomes"]
+
+    first = client.post(
+        f"/markets/{market['id']}/wager",
+        json={"username": "pool-player", "outcome_id": outcome_a["id"], "amount": 100},
+    )
+    assert first.status_code == 200
+    assert first.json()["locked_payout"] == pytest.approx(200)
+
+    other = register("pool-other")
+    second = client.post(
+        f"/markets/{market['id']}/wager",
+        json={"username": "pool-other", "outcome_id": outcome_b["id"], "amount": 900},
+    )
+    assert second.status_code == 200
+
+    client.post(
+        "/auth/login",
+        json={"email": "pool-player@gbn.cz", "password": "spravneheslo"},
+    )
+    blocked = client.post(
+        f"/markets/{market['id']}/wager",
+        json={"username": "pool-player", "outcome_id": outcome_b["id"], "amount": 100},
+    )
+    assert blocked.status_code == 400
+
+    client.post(
+        f"/markets/{market['id']}/resolve",
+        json={"winning_outcome_id": outcome_a["id"]},
+        headers=ADMIN_HEADERS,
+    )
+    history = client.get("/users/pool-player/transactions").json()
+    wager = next(item for item in history if item["type"] == "trade")
+    assert wager["winnings"] == pytest.approx(200)
 
 
 def test_wager_uses_exact_lmsr_cost_inverse():
@@ -270,7 +313,7 @@ def test_wager_uses_exact_lmsr_cost_inverse():
         json={"outcome_id": market["outcomes"][0]["id"], "amount": 10000},
     )
     assert quote.status_code == 200
-    assert quote.json()["shares"] == pytest.approx(13115.40630199832)
+    assert quote.json()["locked_payout"] == pytest.approx(20000)
 
 
 def test_wager_accepts_trade_at_odds_cap():
@@ -300,6 +343,55 @@ def test_wager_accepts_trade_at_odds_cap():
     )
     assert response.status_code == 200
     assert response.json()["multiplier"] <= 101.0
+
+
+def test_saturated_wagers_have_bounded_market_impact():
+    register("impact-favorite")
+    register("impact-underdog")
+    market = client.post(
+        "/markets",
+        json={"title": "Impact control", "b": 5000, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+    outcome_a, outcome_b = market["outcomes"]
+    funded = client.post(
+        "/admin/balance-adjustment",
+        json={"points": 90000},
+        headers=ADMIN_HEADERS,
+    )
+    assert funded.status_code == 200
+    assert client.post(
+        "/auth/login",
+        json={"email": "impact-favorite@gbn.cz", "password": "spravneheslo"},
+    ).status_code == 200
+
+    favorite = client.post(
+        f"/markets/{market['id']}/wager",
+        json={"username": "impact-favorite", "outcome_id": outcome_a["id"], "amount": 100000},
+    )
+    assert favorite.status_code == 200
+
+    before = client.get(f"/markets/{market['id']}").json()
+    before_underdog_price = next(
+        outcome["price"] for outcome in before["outcomes"] if outcome["id"] == outcome_b["id"]
+    )
+    assert client.post(
+        "/auth/login",
+        json={"email": "impact-underdog@gbn.cz", "password": "spravneheslo"},
+    ).status_code == 200
+
+    underdog = client.post(
+        f"/markets/{market['id']}/wager",
+        json={"username": "impact-underdog", "outcome_id": outcome_b["id"], "amount": 10000},
+    )
+    assert underdog.status_code == 200, underdog.text
+
+    after = client.get(f"/markets/{market['id']}").json()
+    after_underdog_price = next(
+        outcome["price"] for outcome in after["outcomes"] if outcome["id"] == outcome_b["id"]
+    )
+    assert after_underdog_price > before_underdog_price
+    assert after_underdog_price <= 0.5 + 1e-9
 
 
 def test_wager_rejects_insufficient_funds():
@@ -404,7 +496,7 @@ def test_transaction_history_describes_resolved_wager():
     trade = next(item for item in resolved if item["type"] == "trade")
     assert trade["resolved"] is True
     assert trade["won"] is True
-    assert trade["winnings"] == pytest.approx(trade["shares"])
+    assert trade["winnings"] == pytest.approx(200)
 
 
 def test_leaderboard_reflects_balances_and_open_positions():

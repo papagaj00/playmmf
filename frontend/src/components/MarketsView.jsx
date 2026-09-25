@@ -1,7 +1,7 @@
 import MarketCard from "./MarketCard";
 import LoadingState from "./LoadingState";
 
-export default function MarketsView({ markets, username, balance, loading, onChanged, isAdmin, adminKey }) {
+export default function MarketsView({ markets, username, balance, positions, loading, onChanged, isAdmin, adminKey }) {
   const open = markets.filter((m) => m.status !== "resolved");
   const resolved = markets.filter((m) => m.status === "resolved");
 
@@ -17,6 +17,7 @@ export default function MarketsView({ markets, username, balance, loading, onCha
           market={m}
           username={username}
           balance={balance}
+          positions={positions}
           onChanged={onChanged}
           isAdmin={isAdmin}
           adminKey={adminKey}
@@ -34,6 +35,7 @@ export default function MarketsView({ markets, username, balance, loading, onCha
               market={m}
               username={username}
               balance={balance}
+              positions={positions}
               onChanged={onChanged}
               isAdmin={isAdmin}
               adminKey={adminKey}

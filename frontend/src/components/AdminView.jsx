@@ -181,7 +181,7 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
             placeholder="Vítěz postupuje do sobotního finále"
           />
 
-          <label>Parametr likvidity (b)</label>
+          <label>Počáteční pool pro každý výsledek (b)</label>
           <input type="number" min="1" step="1" value={b} onChange={(e) => setB(e.target.value)} />
 
           <label>Možné výsledky</label>

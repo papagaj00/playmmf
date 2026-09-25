@@ -32,6 +32,36 @@ def ensure_auth_columns() -> None:
             ))
 
 
+def ensure_pool_columns() -> None:
+    """Add pool-betting fields without deleting legacy LMSR data."""
+    position_columns = {column["name"] for column in inspect(engine).get_columns("positions")}
+    transaction_columns = {column["name"] for column in inspect(engine).get_columns("transactions")}
+    with engine.begin() as connection:
+        if "stake_amount" not in position_columns:
+            connection.execute(text("ALTER TABLE positions ADD COLUMN stake_amount FLOAT NOT NULL DEFAULT 0"))
+        if "locked_payout" not in position_columns:
+            connection.execute(text("ALTER TABLE positions ADD COLUMN locked_payout FLOAT NOT NULL DEFAULT 0"))
+        if "locked_payout" not in transaction_columns:
+            connection.execute(text("ALTER TABLE transactions ADD COLUMN locked_payout FLOAT"))
+        # Preserve old open positions with their legacy share payout as a
+        # fallback. New positions use the explicit pool-bet fields.
+        connection.execute(text(
+            "UPDATE positions SET stake_amount = COALESCE(stake_amount, 0), "
+            "locked_payout = CASE WHEN COALESCE(locked_payout, 0) = 0 AND shares != 0 "
+            "THEN shares ELSE COALESCE(locked_payout, 0) END"
+        ))
+        # Seed only untouched zero-state markets. Nonzero legacy quantities
+        # are preserved so historical market records remain inspectable.
+        connection.execute(text(
+            "UPDATE outcomes SET quantity = ("
+            "SELECT b FROM markets WHERE markets.id = outcomes.market_id"
+            ") WHERE quantity = 0 AND NOT EXISTS ("
+            "SELECT 1 FROM outcomes other WHERE other.market_id = outcomes.market_id "
+            "AND other.quantity != 0"
+            ")"
+        ))
+
+
 class Base(DeclarativeBase):
     pass
 

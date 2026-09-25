@@ -113,6 +113,7 @@ export default function App() {
             markets={markets}
             username={username}
             balance={user ? user.balance : 0}
+            positions={positions}
             loading={initialDataLoading}
             onChanged={refreshAll}
             isAdmin={isAdmin}
@@ -122,7 +123,7 @@ export default function App() {
         {tab === "portfolio" && user && (
           <PortfolioView user={user} positions={positions} transactions={transactions} />
         )}
-        {tab === "leaderboard" && <LeaderboardView entries={leaderboard} loading={initialDataLoading} />}
+        {tab === "leaderboard" && <LeaderboardView entries={leaderboard} username={username} loading={initialDataLoading} />}
         {tab === "admin" && (
           <AdminView
             adminKey={adminKey}

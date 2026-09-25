@@ -44,6 +44,10 @@ class InvalidBalanceAdjustment(Exception):
     pass
 
 
+class ExistingMarketPosition(Exception):
+    pass
+
+
 def _validate_trade(shares: float, amount: float) -> None:
     if abs(shares) < MIN_TRADE_SHARES:
         raise InvalidTrade(f"Sázka musí mít alespoň {MIN_TRADE_SHARES:g} jednotku.")
@@ -213,7 +217,7 @@ def create_market(
     db.add(market)
     db.flush()
     for name in outcome_names:
-        db.add(models.Outcome(market_id=market.id, name=name, quantity=0.0))
+        db.add(models.Outcome(market_id=market.id, name=name, quantity=b))
     db.commit()
     db.refresh(market)
     return market
@@ -251,9 +255,10 @@ def list_markets(db: Session) -> list[models.Market]:
 
 
 def market_prices(market: models.Market) -> dict[int, float]:
-    quantities = [o.quantity for o in market.outcomes]
-    ps = lmsr.capped_prices(quantities, market.b)
-    return {o.id: p for o, p in zip(market.outcomes, ps)}
+    total_pool = sum(o.quantity for o in market.outcomes)
+    if total_pool <= 0:
+        return {o.id: 1 / len(market.outcomes) for o in market.outcomes}
+    return {o.id: o.quantity / total_pool for o in market.outcomes}
 
 
 def set_market_status(db: Session, market: models.Market, status: models.MarketStatus) -> models.Market:
@@ -286,7 +291,24 @@ def quote_trade(db: Session, market: models.Market, outcome_id: int, shares: flo
     }
 
 
-def quote_wager(market: models.Market, outcome_id: int, amount: float) -> dict:
+def _open_position_for_market(
+    db: Session, user: models.User, market: models.Market
+) -> models.Position | None:
+    return (
+        db.query(models.Position)
+        .join(models.Outcome)
+        .filter(
+            models.Position.user_id == user.id,
+            models.Outcome.market_id == market.id,
+            (models.Position.stake_amount > 0) | (models.Position.shares != 0),
+        )
+        .first()
+    )
+
+
+def quote_wager(
+    db: Session, user: models.User, market: models.Market, outcome_id: int, amount: float
+) -> dict:
     if market.status != models.MarketStatus.OPEN:
         raise MarketNotOpen(f"Zápas {market.id} není otevřený pro sázení.")
     if not math.isfinite(amount) or amount < MIN_WAGER_AMOUNT:
@@ -296,27 +318,25 @@ def quote_wager(market: models.Market, outcome_id: int, amount: float) -> dict:
     if outcome is None:
         raise KeyError("outcome not in this market")
 
-    quantities = [o.quantity for o in market.outcomes]
-    idx = [o.id for o in market.outcomes].index(outcome_id)
-    raw_price_before = lmsr.price(quantities, market.b, idx)
-    price_before = lmsr.capped_price(raw_price_before)
-    shares = lmsr.shares_for_cost(quantities, market.b, idx, amount)
-    prices_after = lmsr.prices_after_trade(quantities, market.b, idx, shares)
-    if lmsr.prices_within_odds_cap(prices_after):
-        price_after = prices_after[idx]
-    else:
-        shares = amount / price_before
-        price_after = lmsr.capped_price(
-            lmsr.prices_after_trade(quantities, market.b, idx, shares)[idx]
+    existing = _open_position_for_market(db, user, market)
+    if existing is not None and existing.outcome_id != outcome_id:
+        raise ExistingMarketPosition(
+            "Na tento zápas už máš otevřenou sázku na jiný výsledek."
         )
+    total_pool = sum(o.quantity for o in market.outcomes)
+    price_before = outcome.quantity / total_pool
+    payout = amount / price_before
+    next_total = total_pool + amount
+    price_after = (outcome.quantity + amount) / next_total
     return {
         "outcome_id": outcome_id,
         "amount": amount,
-        "shares": shares,
+        "stake_amount": amount,
         "price_before": price_before,
         "price_after": price_after,
-        "gross_payout": shares,
-        "multiplier": shares / amount,
+        "locked_payout": payout,
+        "gross_payout": payout,
+        "multiplier": payout / amount,
     }
 
 
@@ -327,8 +347,7 @@ def execute_wager(
         raise InsufficientFunds(
             f"Sázka stojí {amount:.2f} bodu, ale na účtu máš pouze {user.balance:.2f} bodu."
         )
-    quote = quote_wager(market, outcome_id, amount)
-    shares = quote["shares"]
+    quote = quote_wager(db, user, market, outcome_id, amount)
     outcome = next(o for o in market.outcomes if o.id == outcome_id)
     position = (
         db.query(models.Position)
@@ -336,19 +355,21 @@ def execute_wager(
         .first()
     )
 
-    outcome.quantity += shares
+    outcome.quantity += amount
     user.balance -= amount
     if position is None:
         position = models.Position(user_id=user.id, outcome_id=outcome_id, shares=0.0)
         db.add(position)
-    position.shares += shares
+    position.stake_amount = (position.stake_amount or 0.0) + amount
+    position.locked_payout = (position.locked_payout or 0.0) + quote["locked_payout"]
     db.add(
         models.Transaction(
             user_id=user.id,
             outcome_id=outcome_id,
             type=models.TransactionType.TRADE,
-            shares=shares,
+            shares=0,
             amount=amount,
+            locked_payout=quote["locked_payout"],
             balance_after=user.balance,
         )
     )
@@ -439,7 +460,9 @@ def resolve_market(db: Session, market: models.Market, winning_outcome_id: int) 
         .all()
     )
     for pos in positions:
-        payout = pos.shares if pos.outcome_id == winning_outcome_id else 0.0
+        payout = (
+            pos.locked_payout if (pos.stake_amount or 0) > 0 else pos.shares
+        ) if pos.outcome_id == winning_outcome_id else 0.0
         if payout != 0:
             user = db.get(models.User, pos.user_id)
             user.balance += payout
@@ -464,14 +487,13 @@ def resolve_market(db: Session, market: models.Market, winning_outcome_id: int) 
 def get_positions(db: Session, user: models.User) -> list[dict]:
     out = []
     for pos in user.positions:
-        if pos.shares == 0:
+        if (pos.stake_amount or 0) == 0 and pos.shares == 0:
             continue
         market = pos.outcome.market
         if market.status == models.MarketStatus.RESOLVED:
             continue
-        quantities = [o.quantity for o in market.outcomes]
-        idx = [o.id for o in market.outcomes].index(pos.outcome_id)
-        current_price = lmsr.capped_price(lmsr.price(quantities, market.b, idx))
+        total_pool = sum(o.quantity for o in market.outcomes)
+        current_price = pos.outcome.quantity / total_pool
         out.append(
             {
                 "market_id": market.id,
@@ -479,7 +501,9 @@ def get_positions(db: Session, user: models.User) -> list[dict]:
                 "outcome_id": pos.outcome_id,
                 "outcome_name": pos.outcome.name,
                 "shares": pos.shares,
-                "potential_payout": pos.shares,
+                "stake_amount": pos.stake_amount or 0.0,
+                "potential_payout": pos.locked_payout if (pos.stake_amount or 0) > 0 else pos.shares,
+                "locked_payout": pos.locked_payout if (pos.stake_amount or 0) > 0 else pos.shares,
                 "current_price": current_price,
                 "market_status": market.status,
             }
@@ -504,7 +528,11 @@ def get_transaction_history(db: Session, user: models.User) -> list[dict]:
                 resolved = market.status == models.MarketStatus.RESOLVED
                 if transaction.type == models.TransactionType.TRADE and resolved:
                     won = transaction.outcome_id == market.resolved_outcome_id
-                    winnings = transaction.shares if won else 0.0
+                    winnings = (
+                        transaction.locked_payout
+                        if transaction.locked_payout is not None
+                        else transaction.shares
+                    ) if won else 0.0
         history.append(
             {
                 "id": transaction.id,

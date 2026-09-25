@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import TradeSheet from "./TradeSheet";
 import { formatPoints } from "../format";
+import LoadingState from "./LoadingState";
 
 const STATUS_LABELS = {
   open: "otevřený",
@@ -9,13 +10,14 @@ const STATUS_LABELS = {
   resolved: "vyhodnocený",
 };
 
-export default function MarketCard({ market, username, balance, onChanged, isAdmin, adminKey }) {
+export default function MarketCard({ market, username, balance, positions, onChanged, isAdmin, adminKey }) {
   const [adminBusy, setAdminBusy] = useState(false);
   const [selectedOutcomeId, setSelectedOutcomeId] = useState(null);
   const [amount, setAmount] = useState(100);
   const [quote, setQuote] = useState(null);
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [updating, setUpdating] = useState(false);
 
   const orderedOutcomes = [...market.outcomes].sort((left, right) => left.id - right.id);
   const leadingOutcomeIndex = orderedOutcomes.reduce(
@@ -25,6 +27,7 @@ export default function MarketCard({ market, username, balance, onChanged, isAdm
   );
   const selectedOutcome = market.outcomes.find((outcome) => outcome.id === selectedOutcomeId);
   const tradable = market.status === "open" && username;
+  const openPosition = positions.find((position) => position.market_id === market.id);
 
   useEffect(() => {
     if (!tradable || !selectedOutcomeId) {
@@ -64,10 +67,19 @@ export default function MarketCard({ market, username, balance, onChanged, isAdm
       });
       setQuote(null);
       setSelectedOutcomeId(null);
-      onChanged();
+      setUpdating(true);
+      try {
+        await onChanged();
+      } catch {
+        setMessage({
+          type: "success",
+          text: "Sázka byla přijata. Kurzy se aktualizují při dalším načtení.",
+        });
+      }
     } catch (err) {
       setMessage({ type: "error", text: err.message });
     } finally {
+      setUpdating(false);
       setBusy(false);
     }
   }
@@ -153,6 +165,13 @@ export default function MarketCard({ market, username, balance, onChanged, isAdm
             disabled={!tradable}
             type="button"
             onClick={() => {
+              if (openPosition && openPosition.outcome_id !== outcome.id) {
+                setMessage({
+                  type: "error",
+                  text: `Na tento zápas už máš otevřenou sázku na „${openPosition.outcome_name}“. Další výsledek můžeš vsadit až po vyhodnocení zápasu.`,
+                });
+                return;
+              }
               setSelectedOutcomeId(outcome.id);
               setMessage(null);
             }}
@@ -178,6 +197,7 @@ export default function MarketCard({ market, username, balance, onChanged, isAdm
           onConfirm={placeWager}
         />
       )}
+      {updating && <LoadingState label="Aktualizuji kurzy a zůstatek…" />}
       {message && <div className={`trade-message ${message.type}`}>{message.text}</div>}
 
       {isAdmin && (

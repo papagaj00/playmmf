@@ -1041,3 +1041,14 @@ select {
     width: 150px;
     text-align: right;
 }
+
+.leaderboard-row--current td {
+    color: var(--text);
+    background: rgba(253, 33, 102, 0.1);
+    border-bottom-color: rgba(253, 33, 102, 0.28);
+    font-weight: 700;
+}
+
+.leaderboard-row--current td:first-child {
+    box-shadow: inset 3px 0 0 var(--accent);
+}
