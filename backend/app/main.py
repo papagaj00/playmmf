@@ -255,16 +255,10 @@ def resolve_market(market_id: int, payload: schemas.MarketResolve, db: Session =
 
 @app.post("/markets/{market_id}/quote", response_model=schemas.QuoteResponse, dependencies=[Depends(require_app_open)])
 def quote_trade(market_id: int, payload: schemas.QuoteRequest, db: Session = Depends(get_db)):
-    market = crud.get_market(db, market_id)
-    if not market:
-        raise HTTPException(status_code=404, detail="Zápas nebyl nalezen.")
-    try:
-        result = crud.quote_trade(db, market, payload.outcome_id, payload.shares)
-    except KeyError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except crud.InvalidTrade as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return result
+    raise HTTPException(
+        status_code=410,
+        detail="Tento LMSR endpoint byl nahrazen poolovým sázením.",
+    )
 
 
 @app.post("/markets/{market_id}/wager/quote", response_model=schemas.WagerQuoteResponse, dependencies=[Depends(require_app_open)])
@@ -285,22 +279,10 @@ def quote_wager(
 
 @app.post("/markets/{market_id}/trade", response_model=schemas.TradeResponse, dependencies=[Depends(require_app_open)])
 def execute_trade(market_id: int, payload: schemas.TradeRequest, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
-    market = crud.get_market(db, market_id)
-    if not market:
-        raise HTTPException(status_code=404, detail="Zápas nebyl nalezen.")
-    try:
-        result = crud.execute_trade(db, user, market, payload.outcome_id, payload.shares)
-    except crud.MarketNotOpen as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except crud.InsufficientFunds as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except crud.InsufficientShares as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except crud.InvalidTrade as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except KeyError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    return result
+    raise HTTPException(
+        status_code=410,
+        detail="Tento LMSR endpoint byl nahrazen poolovým sázením.",
+    )
 
 
 @app.post("/markets/{market_id}/wager", response_model=schemas.WagerResponse, dependencies=[Depends(require_app_open)])

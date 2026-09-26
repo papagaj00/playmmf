@@ -133,31 +133,30 @@ def test_full_trading_flow():
     # New trader
     register("carol")
 
-    # Quote before trading
+    # Quote and execute a pool wager
     r = client.post(
-        f"/markets/{market_id}/quote",
-        json={"outcome_id": lions_outcome_id, "shares": 10},
+        f"/markets/{market_id}/wager/quote",
+        json={"outcome_id": lions_outcome_id, "amount": 100},
     )
     assert r.status_code == 200
     quote = r.json()
-    assert quote["cost"] > 0
-    assert quote["price_after"] > quote["price_before"]
+    assert quote["locked_payout"] == pytest.approx(200)
 
-    # Execute the trade
     r = client.post(
-        f"/markets/{market_id}/trade",
-        json={"username": "carol", "outcome_id": lions_outcome_id, "shares": 10},
+        f"/markets/{market_id}/wager",
+        json={"username": "carol", "outcome_id": lions_outcome_id, "amount": 100},
     )
     assert r.status_code == 200
-    trade = r.json()
-    assert trade["new_balance"] == pytest.approx(10000.0 - trade["amount"])
+    wager = r.json()
+    assert wager["new_balance"] == pytest.approx(9900)
 
     # Position shows up
     r = client.get("/users/carol/positions")
     assert r.status_code == 200
     positions = r.json()
     assert len(positions) == 1
-    assert positions[0]["shares"] == 10
+    assert positions[0]["stake_amount"] == 100
+    assert positions[0]["locked_payout"] == pytest.approx(200)
 
     # Resolve the market in Lions' favor
     r = client.post(
@@ -168,11 +167,11 @@ def test_full_trading_flow():
     assert r.status_code == 200
     assert r.json()["status"] == "resolved"
 
-    # Carol should have received 10 points payout (10 winning shares x 1)
+    # Carol should have received the locked 200-point payout.
     r = client.get("/users/carol")
     balance_after_resolution = r.json()["balance"]
     assert balance_after_resolution == pytest.approx(
-        10000.0 - trade["amount"] + 10
+        10000.0 - 100 + 200
     )
 
     # The payout is now cash; the resolved market is no longer an open position.
@@ -184,7 +183,7 @@ def test_full_trading_flow():
     assert set(carol_row) == {"username", "balance"}
 
 
-def test_cannot_sell_more_shares_than_held():
+def test_legacy_trade_endpoint_is_disabled():
     register("dave")
     r = client.post(
         "/markets",
@@ -192,35 +191,25 @@ def test_cannot_sell_more_shares_than_held():
         headers=ADMIN_HEADERS,
     )
     market_id = r.json()["id"]
-    outcome_id = r.json()["outcomes"][0]["id"]
-
     r = client.post(
-        f"/markets/{market_id}/trade",
-        json={"username": "dave", "outcome_id": outcome_id, "shares": -5},
+        f"/markets/{r.json()['id']}/trade",
+        json={"username": "dave", "outcome_id": 1, "shares": -5},
     )
-    assert r.status_code == 400
+    assert r.status_code == 410
 
 
-def test_rejects_zero_and_fractional_trades():
+def test_legacy_quote_endpoint_is_disabled():
     register("fractional")
     r = client.post(
         "/markets",
         json={"title": "Minimum trade", "b": 15, "outcome_names": ["X", "Y"]},
         headers=ADMIN_HEADERS,
     )
-    market_id = r.json()["id"]
-    outcome_id = r.json()["outcomes"][0]["id"]
-
-    for endpoint in ("quote", "trade"):
-        r = client.post(
-            f"/markets/{market_id}/{endpoint}",
-            json={
-                "outcome_id": outcome_id,
-                "shares": 0 if endpoint == "quote" else 0.5,
-                **({"username": "fractional"} if endpoint == "trade" else {}),
-            },
-        )
-        assert r.status_code == 400
+    r = client.post(
+        f"/markets/{r.json()['id']}/quote",
+        json={"outcome_id": 1, "shares": 0},
+    )
+    assert r.status_code == 410
 
 
 def test_variable_wager_quote_and_execution():
@@ -299,6 +288,31 @@ def test_pool_wager_locks_payout_and_blocks_cross_outcome_hedging():
     history = client.get("/users/pool-player/transactions").json()
     wager = next(item for item in history if item["type"] == "trade")
     assert wager["winnings"] == pytest.approx(200)
+
+
+def test_resolved_market_prices_reconstruct_pool_odds_from_stakes():
+    register("historical-pool-user")
+    market = client.post(
+        "/markets",
+        json={"title": "Historical pool display", "b": 5000, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+    outcome_a, outcome_b = market["outcomes"]
+    wager = client.post(
+        f"/markets/{market['id']}/wager",
+        json={"username": "historical-pool-user", "outcome_id": outcome_a["id"], "amount": 1000},
+    )
+    assert wager.status_code == 200
+    assert client.post(
+        f"/markets/{market['id']}/resolve",
+        json={"winning_outcome_id": outcome_a["id"]},
+        headers=ADMIN_HEADERS,
+    ).status_code == 200
+
+    resolved = client.get(f"/markets/{market['id']}").json()
+    prices = {outcome["id"]: outcome["price"] for outcome in resolved["outcomes"]}
+    assert prices[outcome_a["id"]] == pytest.approx(6000 / 11000)
+    assert prices[outcome_b["id"]] == pytest.approx(5000 / 11000)
 
 
 def test_wager_uses_exact_lmsr_cost_inverse():
@@ -408,7 +422,7 @@ def test_wager_rejects_insufficient_funds():
     assert response.status_code == 400
 
 
-def test_buying_does_not_create_immediate_liquidation_profit():
+def test_pool_wager_updates_cash_without_liquidation_value():
     register("liquidation")
     r = client.post(
         "/markets",
@@ -418,11 +432,11 @@ def test_buying_does_not_create_immediate_liquidation_profit():
     market_id = r.json()["id"]
     outcome_id = r.json()["outcomes"][0]["id"]
 
-    trade = client.post(
-        f"/markets/{market_id}/trade",
-        json={"username": "liquidation", "outcome_id": outcome_id, "shares": 10},
+    wager = client.post(
+        f"/markets/{market_id}/wager",
+        json={"username": "liquidation", "outcome_id": outcome_id, "amount": 100},
     )
-    assert trade.status_code == 200
+    assert wager.status_code == 200
 
     user = client.get("/users/liquidation").json()
     positions = client.get("/users/liquidation/positions").json()
@@ -430,12 +444,12 @@ def test_buying_does_not_create_immediate_liquidation_profit():
         row for row in client.get("/leaderboard").json()
         if row["username"] == "liquidation"
     )
-    assert user["balance"] < 10000.0
+    assert user["balance"] == 9900
     assert "liquidation_value" not in positions[0]
     assert leaderboard["balance"] == pytest.approx(user["balance"])
 
 
-def test_cannot_trade_on_resolved_market():
+def test_cannot_wager_on_resolved_market():
     register("erin")
     r = client.post(
         "/markets",
@@ -450,8 +464,8 @@ def test_cannot_trade_on_resolved_market():
         headers=ADMIN_HEADERS,
     )
     r = client.post(
-        f"/markets/{market_id}/trade",
-        json={"username": "erin", "outcome_id": outcome_id, "shares": 5},
+        f"/markets/{market_id}/wager",
+        json={"username": "erin", "outcome_id": outcome_id, "amount": 100},
     )
     assert r.status_code == 400
 

@@ -273,10 +273,38 @@ def list_markets(db: Session) -> list[models.Market]:
 
 
 def market_prices(market: models.Market) -> dict[int, float]:
+    if market.status == models.MarketStatus.RESOLVED:
+        return historical_pool_prices(market)
     total_pool = sum(o.quantity for o in market.outcomes)
     if total_pool <= 0:
         return {o.id: 1 / len(market.outcomes) for o in market.outcomes}
     return {o.id: o.quantity / total_pool for o in market.outcomes}
+
+
+def historical_pool_prices(market: models.Market) -> dict[int, float]:
+    """Reconstruct resolved odds as if this match used point pools.
+
+    This keeps old LMSR markets visually compatible with the current engine
+    without changing their stored quantities, payouts, or transaction data.
+    """
+    stakes_by_outcome = {
+        outcome.id: 0.0 for outcome in market.outcomes
+    }
+    for outcome in market.outcomes:
+        for position in outcome.positions:
+            for transaction in position.user.transactions:
+                if (
+                    transaction.type == models.TransactionType.TRADE
+                    and transaction.outcome_id == outcome.id
+                    and transaction.amount > 0
+                ):
+                    stakes_by_outcome[outcome.id] += transaction.amount
+    pools = {
+        outcome.id: market.b + stakes_by_outcome[outcome.id]
+        for outcome in market.outcomes
+    }
+    total_pool = sum(pools.values())
+    return {outcome_id: pool / total_pool for outcome_id, pool in pools.items()}
 
 
 def set_market_status(db: Session, market: models.Market, status: models.MarketStatus) -> models.Market:
@@ -474,7 +502,10 @@ def resolve_market(db: Session, market: models.Market, winning_outcome_id: int) 
     positions = (
         db.query(models.Position)
         .join(models.Outcome)
-        .filter(models.Outcome.market_id == market.id, models.Position.shares != 0)
+        .filter(
+            models.Outcome.market_id == market.id,
+            (models.Position.stake_amount > 0) | (models.Position.shares != 0),
+        )
         .all()
     )
     for pos in positions:
