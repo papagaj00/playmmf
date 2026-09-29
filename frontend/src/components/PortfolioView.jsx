@@ -10,7 +10,7 @@ export default function PortfolioView({ user, positions, transactions }) {
   const activity = transactions.filter((transaction) => transaction.type !== "payout");
 
   return (
-    <div>
+    <div className="portfolio-view">
       <h2 className="section-title">Moje sázky</h2>
       <div className="stat-row stat-row--single">
         <div className="stat-box">
@@ -25,7 +25,8 @@ export default function PortfolioView({ user, positions, transactions }) {
       {positions.length === 0 ? (
         <div className="empty-state">Zatím nemáš žádné otevřené sázky. Vyber si tip v sekci Zápasy.</div>
       ) : (
-        <table className="positions-table" style={{ marginBottom: 28 }}>
+        <div className="portfolio-table-wrap" style={{ marginBottom: 28 }}>
+          <table className="positions-table">
           <thead>
             <tr>
               <th>Zápas</th>
@@ -44,7 +45,8 @@ export default function PortfolioView({ user, positions, transactions }) {
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       )}
 
       <h3 className="section-title" style={{ fontSize: 18 }}>
@@ -53,7 +55,8 @@ export default function PortfolioView({ user, positions, transactions }) {
       {activity.length === 0 ? (
         <div className="empty-state">Zatím žádná aktivita.</div>
       ) : (
-        <table className="positions-table">
+        <div className="portfolio-table-wrap">
+          <table className="positions-table">
           <thead>
             <tr>
               <th>Zápas</th>
@@ -85,7 +88,8 @@ export default function PortfolioView({ user, positions, transactions }) {
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       )}
     </div>
   );

@@ -1226,7 +1226,7 @@ select {
     flex-direction: column;
 }
 
-.leaderboard-view > .section-title {
+.leaderboard-view>.section-title {
     align-self: stretch;
 }
 
@@ -1263,6 +1263,7 @@ select {
 }
 
 @media (max-width: 480px) {
+
     .leaderboard-view .leaderboard-table th:first-child,
     .leaderboard-view .leaderboard-table td:first-child {
         width: 46px;
@@ -1336,4 +1337,22 @@ select {
 
 .brand-lockup h1 {
     margin: 0;
+}
+
+.portfolio-view {
+    width: min(100%, 840px);
+    margin-right: auto;
+    margin-left: auto;
+}
+
+.portfolio-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.portfolio-table-wrap .positions-table {
+    display: table;
+    width: 100%;
+    min-width: 620px;
+    table-layout: fixed;
 }
