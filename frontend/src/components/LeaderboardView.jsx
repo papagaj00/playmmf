@@ -41,7 +41,7 @@ export default function LeaderboardView({ entries, username, loading }) {
                 <tr>
                   <th>#</th>
                   <th>Hráč</th>
-                  <th>Hotovost</th>
+                  <th>Body</th>
                 </tr>
               </thead>
               <tbody>

@@ -14,7 +14,7 @@ export default function PortfolioView({ user, positions, transactions }) {
       <h2 className="section-title">Moje sázky</h2>
       <div className="stat-row stat-row--single">
         <div className="stat-box">
-          <div className="stat-box__label">Hotovost</div>
+          <div className="stat-box__label">Body</div>
           <div className="stat-box__value">{formatPoints(user.balance)}</div>
         </div>
       </div>
