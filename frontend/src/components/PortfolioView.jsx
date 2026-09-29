@@ -78,7 +78,7 @@ export default function PortfolioView({ user, positions, transactions }) {
                     <td>{t.outcome_name || "—"}</td>
                     <td className="num">{formatPoints(t.amount)} bodů</td>
                     <td className={`activity-result ${t.resolved ? (t.won ? "won" : "lost") : "pending"}`}>
-                      {!t.resolved ? "Čeká" : t.won ? `+${formatPoints(t.winnings)} bodů` : "Prohra"}
+                      {!t.resolved ? "Čeká" : t.draw ? "Vráceno" : t.won ? `+${formatPoints(t.winnings)} bodů` : "Prohra"}
                     </td>
                   </>
                 )}

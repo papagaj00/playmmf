@@ -513,6 +513,37 @@ def test_transaction_history_describes_resolved_wager():
     assert trade["winnings"] == pytest.approx(200)
 
 
+def test_draw_refunds_pool_wagers_without_win_or_loss():
+    register("draw-user")
+    market = client.post(
+        "/markets",
+        json={"title": "Draw match", "b": 5000, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+    outcome_id = market["outcomes"][0]["id"]
+    wager = client.post(
+        f"/markets/{market['id']}/wager",
+        json={"username": "draw-user", "outcome_id": outcome_id, "amount": 100},
+    )
+    assert wager.status_code == 200
+    assert wager.json()["locked_payout"] == pytest.approx(200)
+
+    resolved = client.post(
+        f"/markets/{market['id']}/resolve",
+        json={"draw": True},
+        headers=ADMIN_HEADERS,
+    )
+    assert resolved.status_code == 200
+    assert resolved.json()["resolved_as_draw"] is True
+    assert client.get("/users/draw-user").json()["balance"] == 10000
+
+    history = client.get("/users/draw-user/transactions").json()
+    trade = next(item for item in history if item["type"] == "trade")
+    assert trade["draw"] is True
+    assert trade["won"] is None
+    assert trade["winnings"] is None
+
+
 def test_leaderboard_reflects_balances_and_open_positions():
     r = client.get("/leaderboard")
     assert r.status_code == 200

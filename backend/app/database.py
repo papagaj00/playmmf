@@ -43,6 +43,9 @@ def ensure_pool_columns() -> None:
             connection.execute(text("ALTER TABLE positions ADD COLUMN locked_payout FLOAT NOT NULL DEFAULT 0"))
         if "locked_payout" not in transaction_columns:
             connection.execute(text("ALTER TABLE transactions ADD COLUMN locked_payout FLOAT"))
+        market_columns = {column["name"] for column in inspect(engine).get_columns("markets")}
+        if "resolved_as_draw" not in market_columns:
+            connection.execute(text("ALTER TABLE markets ADD COLUMN resolved_as_draw BOOLEAN NOT NULL DEFAULT FALSE"))
         # Preserve old open positions with their legacy share payout as a
         # fallback. New positions use the explicit pool-bet fields.
         connection.execute(text(

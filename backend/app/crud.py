@@ -492,11 +492,26 @@ def execute_trade(
     }
 
 
-def resolve_market(db: Session, market: models.Market, winning_outcome_id: int) -> models.Market:
+def _legacy_position_stake(position: models.Position) -> float:
+    return sum(
+        transaction.amount
+        for transaction in position.user.transactions
+        if transaction.type == models.TransactionType.TRADE
+        and transaction.outcome_id == position.outcome_id
+        and transaction.amount > 0
+    )
+
+
+def resolve_market(
+    db: Session,
+    market: models.Market,
+    winning_outcome_id: int | None,
+    draw: bool = False,
+) -> models.Market:
     if market.status == models.MarketStatus.RESOLVED:
         raise MarketNotOpen("Tento zápas už byl vyhodnocen.")
-    winning = next((o for o in market.outcomes if o.id == winning_outcome_id), None)
-    if winning is None:
+    winning = next((o for o in market.outcomes if o.id == winning_outcome_id), None) if not draw else None
+    if not draw and winning is None:
         raise KeyError("winning outcome not in this market")
 
     positions = (
@@ -509,9 +524,12 @@ def resolve_market(db: Session, market: models.Market, winning_outcome_id: int) 
         .all()
     )
     for pos in positions:
-        payout = (
-            pos.locked_payout if (pos.stake_amount or 0) > 0 else pos.shares
-        ) if pos.outcome_id == winning_outcome_id else 0.0
+        if draw:
+            payout = pos.stake_amount if (pos.stake_amount or 0) > 0 else _legacy_position_stake(pos)
+        else:
+            payout = (
+                pos.locked_payout if (pos.stake_amount or 0) > 0 else pos.shares
+            ) if pos.outcome_id == winning_outcome_id else 0.0
         if payout != 0:
             user = db.get(models.User, pos.user_id)
             user.balance += payout
@@ -521,13 +539,15 @@ def resolve_market(db: Session, market: models.Market, winning_outcome_id: int) 
                     outcome_id=pos.outcome_id,
                     type=models.TransactionType.PAYOUT,
                     shares=0,
-                    amount=-payout,  # negative "cost" = money paid out
+                    amount=-payout,
+                    locked_payout=payout,
                     balance_after=user.balance,
                 )
             )
 
     market.status = models.MarketStatus.RESOLVED
     market.resolved_outcome_id = winning_outcome_id
+    market.resolved_as_draw = draw
     db.commit()
     db.refresh(market)
     return market
@@ -568,6 +588,7 @@ def get_transaction_history(db: Session, user: models.User) -> list[dict]:
         resolved = False
         won = None
         winnings = None
+        drawn = False
         if transaction.outcome_id is not None:
             outcome = db.get(models.Outcome, transaction.outcome_id)
             if outcome is not None:
@@ -575,13 +596,15 @@ def get_transaction_history(db: Session, user: models.User) -> list[dict]:
                 market_title = market.title
                 outcome_name = outcome.name
                 resolved = market.status == models.MarketStatus.RESOLVED
+                drawn = market.resolved_as_draw
                 if transaction.type == models.TransactionType.TRADE and resolved:
-                    won = transaction.outcome_id == market.resolved_outcome_id
-                    winnings = (
-                        transaction.locked_payout
-                        if transaction.locked_payout is not None
-                        else transaction.shares
-                    ) if won else 0.0
+                    if not drawn:
+                        won = transaction.outcome_id == market.resolved_outcome_id
+                        winnings = (
+                            transaction.locked_payout
+                            if transaction.locked_payout is not None
+                            else transaction.shares
+                        ) if won else 0.0
         history.append(
             {
                 "id": transaction.id,
@@ -596,6 +619,7 @@ def get_transaction_history(db: Session, user: models.User) -> list[dict]:
                 "resolved": resolved,
                 "won": won,
                 "winnings": winnings,
+                "draw": drawn,
             }
         )
     return history

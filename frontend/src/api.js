@@ -88,10 +88,10 @@ export const api = {
     request(`/markets/${id}/status?status=${status}`, { method: "POST", adminKey }),
   deleteMarket: (id, adminKey) =>
     request(`/markets/${id}`, { method: "DELETE", adminKey }),
-  resolveMarket: (id, winning_outcome_id, adminKey) =>
+  resolveMarket: (id, winning_outcome_id, adminKey, draw = false) =>
     request(`/markets/${id}/resolve`, {
       method: "POST",
-      body: { winning_outcome_id },
+      body: { winning_outcome_id, draw },
       adminKey,
     }),
 

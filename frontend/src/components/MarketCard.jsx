@@ -115,10 +115,13 @@ export default function MarketCard({ market, username, balance, positions, onCha
 
   async function handleResolve(outcomeId) {
     if (!outcomeId) return;
-    if (!confirm("Vyhodnotit zápas a vyplatit výherní sázky? Tuto akci nelze vrátit.")) return;
+    const isDraw = outcomeId === "draw";
+    if (!confirm(isDraw
+      ? "Vyhodnotit zápas jako remízu a vrátit všechny vklady? Tuto akci nelze vrátit."
+      : "Vyhodnotit zápas a vyplatit výherní sázky? Tuto akci nelze vrátit.")) return;
     setAdminBusy(true);
     try {
-      await api.resolveMarket(market.id, Number(outcomeId), adminKey);
+      await api.resolveMarket(market.id, isDraw ? null : Number(outcomeId), adminKey, isDraw);
       onChanged();
     } catch (err) {
       alert(err.message);
@@ -134,7 +137,9 @@ export default function MarketCard({ market, username, balance, positions, onCha
           <h3 className="market-card__title">{market.title}</h3>
           {market.description && <p className="market-card__desc">{market.description}</p>}
         </div>
-        <span className={`status-badge ${market.status}`}>{STATUS_LABELS[market.status]}</span>
+        <span className={`status-badge ${market.status}`}>
+          {market.resolved_as_draw ? "remíza" : STATUS_LABELS[market.status]}
+        </span>
       </div>
 
       <div className="tug-bar">
@@ -221,6 +226,7 @@ export default function MarketCard({ market, username, balance, positions, onCha
               <option value="" disabled>
                 Vyhodnotit jako…
               </option>
+              <option value="draw">Remíza / Draw</option>
               {orderedOutcomes.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}

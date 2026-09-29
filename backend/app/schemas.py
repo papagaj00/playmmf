@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models import MarketStatus, TransactionType
 
@@ -85,11 +85,19 @@ class MarketOut(BaseModel):
     b: float
     status: MarketStatus
     resolved_outcome_id: int | None
+    resolved_as_draw: bool
     outcomes: list[OutcomeOut]
 
 
 class MarketResolve(BaseModel):
-    winning_outcome_id: int
+    winning_outcome_id: int | None = None
+    draw: bool = False
+
+    @model_validator(mode="after")
+    def validate_resolution(self):
+        if self.draw == (self.winning_outcome_id is not None):
+            raise ValueError("Vyber vítěze nebo remízu.")
+        return self
 
 
 class BalanceAdjustmentRequest(BaseModel):
@@ -169,6 +177,7 @@ class TransactionOut(BaseModel):
     resolved: bool = False
     won: bool | None = None
     winnings: float | None = None
+    draw: bool = False
 
 
 class PositionOut(BaseModel):

@@ -51,6 +51,7 @@ def _market_to_out(market: models.Market) -> schemas.MarketOut:
         b=market.b,
         status=market.status,
         resolved_outcome_id=market.resolved_outcome_id,
+        resolved_as_draw=market.resolved_as_draw,
         outcomes=[
             schemas.OutcomeOut(
                 id=o.id, name=o.name, quantity=o.quantity, price=price_map[o.id]
@@ -243,7 +244,9 @@ def resolve_market(market_id: int, payload: schemas.MarketResolve, db: Session =
     if not market:
         raise HTTPException(status_code=404, detail="Zápas nebyl nalezen.")
     try:
-        market = crud.resolve_market(db, market, payload.winning_outcome_id)
+        market = crud.resolve_market(
+            db, market, payload.winning_outcome_id, payload.draw
+        )
     except KeyError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except crud.MarketNotOpen as e:

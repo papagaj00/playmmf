@@ -84,6 +84,7 @@ class Market(Base):
     resolved_outcome_id: Mapped[int | None] = mapped_column(
         ForeignKey("outcomes.id"), nullable=True
     )
+    resolved_as_draw: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     outcomes: Mapped[list["Outcome"]] = relationship(
