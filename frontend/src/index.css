@@ -1217,6 +1217,27 @@ select {
     text-align: right;
 }
 
+/* Keep the podium and its three-column table on one centered axis. */
+.leaderboard-view {
+    display: flex;
+    width: min(100%, 680px);
+    margin-right: auto;
+    margin-left: auto;
+    flex-direction: column;
+}
+
+.leaderboard-view > .section-title {
+    align-self: stretch;
+}
+
+.leaderboard-view .winners-podium,
+.leaderboard-view .leaderboard-table {
+    width: 100%;
+    max-width: none;
+    margin-right: 0;
+    margin-left: 0;
+}
+
 .leaderboard-row--current td {
     color: var(--text);
     background: rgba(253, 33, 102, 0.1);
