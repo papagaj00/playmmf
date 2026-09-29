@@ -1238,6 +1238,42 @@ select {
     margin-left: 0;
 }
 
+.leaderboard-view .leaderboard-table {
+    display: table;
+    overflow: visible;
+    table-layout: fixed;
+}
+
+.leaderboard-view .leaderboard-table th:first-child,
+.leaderboard-view .leaderboard-table td:first-child {
+    width: 64px;
+    text-align: center;
+}
+
+.leaderboard-view .leaderboard-table th:nth-child(2),
+.leaderboard-view .leaderboard-table td:nth-child(2) {
+    width: auto;
+    text-align: left;
+}
+
+.leaderboard-view .leaderboard-table th:last-child,
+.leaderboard-view .leaderboard-table td:last-child {
+    width: 170px;
+    text-align: right;
+}
+
+@media (max-width: 480px) {
+    .leaderboard-view .leaderboard-table th:first-child,
+    .leaderboard-view .leaderboard-table td:first-child {
+        width: 46px;
+    }
+
+    .leaderboard-view .leaderboard-table th:last-child,
+    .leaderboard-view .leaderboard-table td:last-child {
+        width: 126px;
+    }
+}
+
 .leaderboard-row--current td {
     color: var(--text);
     background: rgba(253, 33, 102, 0.1);
