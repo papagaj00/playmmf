@@ -11,7 +11,7 @@ export default function BottomNav({ tab, onChange, isAdmin }) {
     const visibleItems = isAdmin ? ITEMS : ITEMS.filter((item) => item.id !== "admin");
 
     return (
-        <nav className="bottom-nav" aria-label="Hlavní navigace">
+        <nav className="bottom-nav" style={{ "--nav-items": visibleItems.length }} aria-label="Hlavní navigace">
             {visibleItems.map(({ id, label, Icon }) => (
                 <button
                     key={id}

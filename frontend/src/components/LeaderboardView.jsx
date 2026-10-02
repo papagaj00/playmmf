@@ -41,7 +41,6 @@ export default function LeaderboardView({ entries, username, loading }) {
                 <tr>
                   <th>#</th>
                   <th>Hráč</th>
-                  <th>Body</th>
                   <th>Hodnota</th>
                 </tr>
               </thead>
@@ -50,7 +49,6 @@ export default function LeaderboardView({ entries, username, loading }) {
                   <tr key={row.username} className={row.username === username ? "leaderboard-row--current" : ""}>
                     <td>{index + 4}</td>
                     <td>{row.username}</td>
-                    <td className="num">{formatPoints(row.balance)}</td>
                     <td className="num">{formatPoints(row.total_value)}</td>
                   </tr>
                 ))}

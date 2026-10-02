@@ -120,8 +120,8 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
     e.preventDefault();
     const selectedTeamIds = teamIds.map((id) => Number(id)).filter(Boolean);
     const names = selectedTeamIds.map((id) => teams.find((team) => team.id === id)?.name).filter(Boolean);
-    if (!title.trim() || selectedTeamIds.length < 2 || new Set(selectedTeamIds).size !== selectedTeamIds.length) {
-      setMessage({ type: "error", text: "Zadej název zápasu a alespoň 2 možné výsledky." });
+    if (!title.trim() || !scheduledAt || selectedTeamIds.length < 2 || new Set(selectedTeamIds).size !== selectedTeamIds.length) {
+      setMessage({ type: "error", text: "Zadej název, datum a čas zápasu a alespoň 2 různé týmy." });
       return;
     }
     setBusy(true);
@@ -174,12 +174,13 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
             placeholder="Vítěz postupuje do sobotního finále"
           />
 
-          <label htmlFor="market-scheduled-at">Datum a čas zápasu (nepovinné)</label>
+          <label htmlFor="market-scheduled-at">Datum a čas zápasu</label>
           <input
             id="market-scheduled-at"
             type="datetime-local"
             value={scheduledAt}
             onChange={(e) => setScheduledAt(e.target.value)}
+            required
           />
 
           <label>Počáteční pool pro každý výsledek (b)</label>

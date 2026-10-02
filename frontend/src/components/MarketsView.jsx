@@ -11,7 +11,9 @@ export default function MarketsView({ markets, username, balance, positions, loa
     return 0;
   };
   const open = markets.filter((m) => m.status !== "resolved").sort(sortBySchedule);
-  const resolved = markets.filter((m) => m.status === "resolved").sort(sortBySchedule);
+  const resolved = markets
+    .filter((m) => m.status === "resolved")
+    .sort((left, right) => sortBySchedule(right, left));
 
   return (
     <div>
