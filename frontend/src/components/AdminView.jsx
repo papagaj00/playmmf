@@ -4,17 +4,22 @@ import { api } from "../api";
 export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, maintenance, onMaintenanceChange }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
   const [b, setB] = useState(5000);
-  const [outcomeNames, setOutcomeNames] = useState(["", ""]);
+  const [teamIds, setTeamIds] = useState(["", ""]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [points, setPoints] = useState(5);
   const [users, setUsers] = useState([]);
+  const [teams, setTeams] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [email, setEmail] = useState("");
 
   useEffect(() => {
-    if (isAdmin) api.getAdminUsers().then(setUsers).catch(() => setUsers([]));
+    if (isAdmin) {
+      api.getAdminUsers().then(setUsers).catch(() => setUsers([]));
+      api.getTeams().then(setTeams).catch(() => setTeams([]));
+    }
   }, [isAdmin]);
 
   async function handleFactoryReset() {
@@ -97,24 +102,25 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
     }
   }
 
-  function updateOutcome(i, value) {
-    const next = [...outcomeNames];
+  function updateTeam(i, value) {
+    const next = [...teamIds];
     next[i] = value;
-    setOutcomeNames(next);
+    setTeamIds(next);
   }
 
   function addOutcome() {
-    setOutcomeNames([...outcomeNames, ""]);
+    setTeamIds([...teamIds, ""]);
   }
 
   function removeOutcome(i) {
-    setOutcomeNames(outcomeNames.filter((_, idx) => idx !== i));
+    setTeamIds(teamIds.filter((_, idx) => idx !== i));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const names = outcomeNames.map((n) => n.trim()).filter(Boolean);
-    if (!title.trim() || names.length < 2) {
+    const selectedTeamIds = teamIds.map((id) => Number(id)).filter(Boolean);
+    const names = selectedTeamIds.map((id) => teams.find((team) => team.id === id)?.name).filter(Boolean);
+    if (!title.trim() || selectedTeamIds.length < 2 || new Set(selectedTeamIds).size !== selectedTeamIds.length) {
       setMessage({ type: "error", text: "Zadej název zápasu a alespoň 2 možné výsledky." });
       return;
     }
@@ -122,12 +128,20 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
     setMessage(null);
     try {
       await api.createMarket(
-        { title: title.trim(), description: description.trim(), b: Number(b), outcome_names: names },
+        {
+          title: title.trim(),
+          description: description.trim(),
+          b: Number(b),
+          outcome_names: names,
+          team_ids: selectedTeamIds,
+          scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+        },
       );
       setMessage({ type: "success", text: "Zápas byl vytvořen." });
       setTitle("");
       setDescription("");
-      setOutcomeNames(["", ""]);
+      setScheduledAt("");
+      setTeamIds(["", ""]);
       onMarketCreated();
     } catch (err) {
       setMessage({ type: "error", text: err.message });
@@ -160,18 +174,25 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
             placeholder="Vítěz postupuje do sobotního finále"
           />
 
+          <label htmlFor="market-scheduled-at">Datum a čas zápasu (nepovinné)</label>
+          <input
+            id="market-scheduled-at"
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+          />
+
           <label>Počáteční pool pro každý výsledek (b)</label>
           <input type="number" min="1" step="1" value={b} onChange={(e) => setB(e.target.value)} />
 
           <label>Možné výsledky</label>
-          {outcomeNames.map((name, i) => (
+          {teamIds.map((teamId, i) => (
             <div className="outcome-input-row" key={i}>
-              <input
-                value={name}
-                onChange={(e) => updateOutcome(i, e.target.value)}
-                placeholder={`Výsledek ${i + 1}`}
-              />
-              {outcomeNames.length > 2 && (
+              <select value={teamId} onChange={(e) => updateTeam(i, e.target.value)} required>
+                <option value="">Vyber tým {i + 1}</option>
+                {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+              </select>
+              {teamIds.length > 2 && (
                 <button type="button" className="btn-small" onClick={() => removeOutcome(i)}>
                   Odebrat
                 </button>

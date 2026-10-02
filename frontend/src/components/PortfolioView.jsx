@@ -8,14 +8,19 @@ const STATUS_LABELS = {
 
 export default function PortfolioView({ user, positions, transactions }) {
   const activity = transactions.filter((transaction) => transaction.type !== "payout");
+  const wageredValue = positions.reduce((total, position) => total + position.stake_amount, 0);
 
   return (
     <div className="portfolio-view">
       <h2 className="section-title">Moje sázky</h2>
-      <div className="stat-row stat-row--single">
+      <div className="stat-row">
         <div className="stat-box">
           <div className="stat-box__label">Body</div>
           <div className="stat-box__value">{formatPoints(user.balance)}</div>
+        </div>
+        <div className="stat-box">
+          <div className="stat-box__label">Hodnota</div>
+          <div className="stat-box__value">{formatPoints(user.balance + wageredValue)}</div>
         </div>
       </div>
 

@@ -39,6 +39,14 @@ class AppSetting(Base):
     value: Mapped[str] = mapped_column(String(255), default="")
 
 
+class Team(Base):
+    __tablename__ = "teams"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), unique=True)
+    sort_order: Mapped[int] = mapped_column(Integer, unique=True)
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -78,6 +86,7 @@ class Market(Base):
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(String(1000), default="")
     b: Mapped[float] = mapped_column(Float)  # initial pool value L per outcome
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[MarketStatus] = mapped_column(
         Enum(MarketStatus), default=MarketStatus.OPEN
     )
@@ -85,6 +94,7 @@ class Market(Base):
         ForeignKey("outcomes.id"), nullable=True
     )
     resolved_as_draw: Mapped[bool] = mapped_column(Boolean, default=False)
+    result: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     outcomes: Mapped[list["Outcome"]] = relationship(
@@ -99,6 +109,7 @@ class Outcome(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     market_id: Mapped[int] = mapped_column(ForeignKey("markets.id"))
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(200))
     quantity: Mapped[float] = mapped_column(Float, default=0.0)  # pool value q_i
 

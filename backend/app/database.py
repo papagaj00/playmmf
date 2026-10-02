@@ -5,6 +5,12 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./tournament.db")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "prokop_jan@gymbn.cz").strip().casefold()
+TEAM_NAMES = [
+    "Gladiators 4B (A)", "Gladiators 4B (B)", "8A8", "FC Gooners 4A",
+    "FC Bumass 7A8", "3A", "FC Alpacas 2A", "FC Tortas 2B", "6B8",
+    "AC Bez Práce 6A8", "FC Bohové 1B", "FC Bang Bros 1B",
+    "FC Fibula 5A8", "FC Six Seven 5B8",
+]
 # Neon/Render's connection string may start with "postgres://" — SQLAlchemy 2.x needs "postgresql://"
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -41,7 +47,17 @@ def ensure_pool_columns() -> None:
     """Add pool-betting fields without deleting legacy LMSR data."""
     position_columns = {column["name"] for column in inspect(engine).get_columns("positions")}
     transaction_columns = {column["name"] for column in inspect(engine).get_columns("transactions")}
+    market_columns = {column["name"] for column in inspect(engine).get_columns("markets")}
+    outcome_columns = {column["name"] for column in inspect(engine).get_columns("outcomes")}
     with engine.begin() as connection:
+        if "team_id" not in outcome_columns:
+            connection.execute(text("ALTER TABLE outcomes ADD COLUMN team_id INTEGER"))
+        if "result" not in market_columns:
+            connection.execute(text("ALTER TABLE markets ADD COLUMN result VARCHAR(32)"))
+        if "scheduled_at" not in market_columns:
+            connection.execute(text(
+                "ALTER TABLE markets ADD COLUMN scheduled_at TIMESTAMP WITH TIME ZONE"
+            ))
         if "stake_amount" not in position_columns:
             connection.execute(text("ALTER TABLE positions ADD COLUMN stake_amount FLOAT NOT NULL DEFAULT 0"))
         if "locked_payout" not in position_columns:
@@ -58,6 +74,12 @@ def ensure_pool_columns() -> None:
             "locked_payout = CASE WHEN COALESCE(locked_payout, 0) = 0 AND shares != 0 "
             "THEN shares ELSE COALESCE(locked_payout, 0) END"
         ))
+        for order, name in enumerate(TEAM_NAMES, start=1):
+            connection.execute(
+                text("INSERT INTO teams (name, sort_order) VALUES (:name, :sort_order) "
+                     "ON CONFLICT (name) DO NOTHING"),
+                {"name": name, "sort_order": order},
+            )
         # Seed only untouched zero-state markets. Nonzero legacy quantities
         # are preserved so historical market records remain inspectable.
         connection.execute(text(

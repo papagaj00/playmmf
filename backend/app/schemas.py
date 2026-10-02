@@ -54,6 +54,8 @@ class AuthResponse(BaseModel):
 class LeaderboardEntry(BaseModel):
     username: str
     balance: float
+    wagered_value: float
+    total_value: float
 
 
 class SystemStatus(BaseModel):
@@ -66,7 +68,9 @@ class MarketCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     description: str = ""
     b: float = Field(gt=0, description="Initial pool value per outcome")
+    scheduled_at: datetime | None = None
     outcome_names: list[str] = Field(min_length=2)
+    team_ids: list[int] | None = None
 
 
 class OutcomeOut(BaseModel):
@@ -77,27 +81,28 @@ class OutcomeOut(BaseModel):
     price: float  # computed, not a DB column
 
 
+class TeamOut(BaseModel):
+    id: int
+    name: str
+    sort_order: int
+
+
 class MarketOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
     title: str
     description: str
     b: float
+    scheduled_at: datetime | None
     status: MarketStatus
     resolved_outcome_id: int | None
     resolved_as_draw: bool
+    result: str | None
     outcomes: list[OutcomeOut]
 
 
 class MarketResolve(BaseModel):
-    winning_outcome_id: int | None = None
-    draw: bool = False
-
-    @model_validator(mode="after")
-    def validate_resolution(self):
-        if self.draw == (self.winning_outcome_id is not None):
-            raise ValueError("Vyber vítěze nebo remízu.")
-        return self
+    result: str = Field(pattern=r"^\d+\s*:\s*\d+$")
 
 
 class BalanceAdjustmentRequest(BaseModel):

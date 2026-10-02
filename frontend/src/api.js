@@ -64,6 +64,7 @@ export const api = {
       body: { maintenance },
     }),
   getAdminUsers: () => request("/admin/users"),
+  getTeams: () => request("/teams"),
   getLeaderboard: () => request("/leaderboard"),
   factoryReset: () =>
     request("/admin/factory-reset", { method: "POST" }),
@@ -85,10 +86,10 @@ export const api = {
     request(`/markets/${id}/status?status=${status}`, { method: "POST" }),
   deleteMarket: (id) =>
     request(`/markets/${id}`, { method: "DELETE" }),
-  resolveMarket: (id, winning_outcome_id, draw = false) =>
+  resolveMarket: (id, result) =>
     request(`/markets/${id}/resolve`, {
       method: "POST",
-      body: { winning_outcome_id, draw },
+      body: { result },
     }),
 
   quoteWager: (marketId, outcome_id, amount) =>

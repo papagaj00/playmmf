@@ -8,7 +8,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import database, main
+from app import database, main, models
 
 # Point the whole app at a fresh in-memory SQLite DB for the test session,
 # so tests never touch tournament.db and never see leftover state.
@@ -19,6 +19,18 @@ test_engine = create_engine(
 )
 TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 database.Base.metadata.create_all(bind=test_engine)
+TEAM_NAMES = [
+    "Gladiators 4B (A)", "Gladiators 4B (B)", "8A8", "FC Gooners 4A",
+    "FC Bumass 7A8", "3A", "FC Alpacas 2A", "FC Tortas 2B", "6B8",
+    "AC Bez Práce 6A8", "FC Bohové 1B", "FC Bang Bros 1B",
+    "FC Fibula 5A8", "FC Six Seven 5B8",
+]
+with TestSessionLocal() as seed_session:
+    seed_session.add_all(
+        models.Team(name=name, sort_order=index)
+        for index, name in enumerate(TEAM_NAMES, start=1)
+    )
+    seed_session.commit()
 
 
 def override_get_db():
@@ -116,6 +128,48 @@ def test_market_creation_requires_authenticated_admin():
     assert r.status_code == 401
 
 
+def test_team_catalog_preserves_requested_order_and_names():
+    response = client.get("/teams", headers=ADMIN_HEADERS)
+    assert response.status_code == 200
+    assert [team["name"] for team in response.json()] == TEAM_NAMES
+
+
+def test_market_can_be_created_from_team_ids():
+    teams = client.get("/teams", headers=ADMIN_HEADERS).json()
+    response = client.post(
+        "/markets",
+        json={
+            "title": "Team catalog match",
+            "b": 5000,
+            "team_ids": [teams[0]["id"], teams[1]["id"]],
+            "outcome_names": [teams[0]["name"], teams[1]["name"]],
+        },
+        headers=ADMIN_HEADERS,
+    )
+    assert response.status_code == 200
+    assert [outcome["name"] for outcome in response.json()["outcomes"]] == TEAM_NAMES[:2]
+
+
+def test_market_schedule_is_persisted():
+    scheduled_at = "2026-10-05T18:30:00+00:00"
+    response = client.post(
+        "/markets",
+        json={
+            "title": "Scheduled match",
+            "b": 5000,
+            "scheduled_at": scheduled_at,
+            "outcome_names": ["A", "B"],
+        },
+        headers=ADMIN_HEADERS,
+    )
+    assert response.status_code == 200
+    market_id = response.json()["id"]
+    assert response.json()["scheduled_at"].startswith("2026-10-05T18:30:00")
+    assert client.get(f"/markets/{market_id}").json()["scheduled_at"].startswith(
+        "2026-10-05T18:30:00"
+    )
+
+
 def test_full_trading_flow():
     # Create a market
     r = client.post(
@@ -169,7 +223,7 @@ def test_full_trading_flow():
     # Resolve the market in Lions' favor
     r = client.post(
         f"/markets/{market_id}/resolve",
-        json={"winning_outcome_id": lions_outcome_id},
+        json={"result": "1:0"},
         headers=ADMIN_HEADERS,
     )
     assert r.status_code == 200
@@ -188,7 +242,9 @@ def test_full_trading_flow():
         row for row in client.get("/leaderboard").json()
         if row["username"] == "carol"
     )
-    assert set(carol_row) == {"username", "balance"}
+    assert set(carol_row) == {"username", "balance", "wagered_value", "total_value"}
+    assert carol_row["wagered_value"] == 0
+    assert carol_row["total_value"] == carol_row["balance"]
 
 
 def test_legacy_trade_endpoint_is_disabled():
@@ -290,7 +346,7 @@ def test_pool_wager_locks_payout_and_blocks_cross_outcome_hedging():
 
     client.post(
         f"/markets/{market['id']}/resolve",
-        json={"winning_outcome_id": outcome_a["id"]},
+        json={"result": "1:0"},
         headers=ADMIN_HEADERS,
     )
     history = client.get("/users/pool-player/transactions").json()
@@ -313,7 +369,7 @@ def test_resolved_market_prices_reconstruct_pool_odds_from_stakes():
     assert wager.status_code == 200
     assert client.post(
         f"/markets/{market['id']}/resolve",
-        json={"winning_outcome_id": outcome_a["id"]},
+        json={"result": "1:0"},
         headers=ADMIN_HEADERS,
     ).status_code == 200
 
@@ -468,7 +524,7 @@ def test_cannot_wager_on_resolved_market():
     outcome_id = r.json()["outcomes"][0]["id"]
     client.post(
         f"/markets/{market_id}/resolve",
-        json={"winning_outcome_id": outcome_id},
+        json={"result": "1:0"},
         headers=ADMIN_HEADERS,
     )
     r = client.post(
@@ -511,7 +567,7 @@ def test_transaction_history_describes_resolved_wager():
 
     client.post(
         f"/markets/{market_id}/resolve",
-        json={"winning_outcome_id": outcome_id},
+        json={"result": "1:0"},
         headers=ADMIN_HEADERS,
     )
     resolved = client.get("/users/history-user/transactions").json()
@@ -538,7 +594,7 @@ def test_draw_refunds_pool_wagers_without_win_or_loss():
 
     resolved = client.post(
         f"/markets/{market['id']}/resolve",
-        json={"draw": True},
+        json={"result": "1:1"},
         headers=ADMIN_HEADERS,
     )
     assert resolved.status_code == 200
@@ -588,7 +644,7 @@ def test_admin_balance_adjustment_ban_and_market_deletion():
 
     assert client.post(
         f"/markets/{market['id']}/resolve",
-        json={"winning_outcome_id": market["outcomes"][0]["id"]},
+        json={"result": "1:0"},
         headers=ADMIN_HEADERS,
     ).status_code == 200
     assert client.delete(f"/markets/{market['id']}", headers=ADMIN_HEADERS).status_code == 204
@@ -679,7 +735,7 @@ def test_factory_reset_deletes_resolved_markets():
     ).json()
     assert client.post(
         f"/markets/{market['id']}/resolve",
-        json={"winning_outcome_id": market["outcomes"][0]["id"]},
+        json={"result": "1:0"},
         headers=ADMIN_HEADERS,
     ).status_code == 200
 

@@ -10,6 +10,14 @@ const STATUS_LABELS = {
   resolved: "vyhodnocený",
 };
 
+function formatMatchDate(value) {
+  if (!value) return null;
+  return new Intl.DateTimeFormat("cs-CZ", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
 export default function MarketCard({ market, username, balance, positions, onChanged, isAdmin }) {
   const [adminBusy, setAdminBusy] = useState(false);
   const [selectedOutcomeId, setSelectedOutcomeId] = useState(null);
@@ -18,6 +26,8 @@ export default function MarketCard({ market, username, balance, positions, onCha
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [resolveOpen, setResolveOpen] = useState(false);
+  const [matchResult, setMatchResult] = useState("");
 
   const orderedOutcomes = [...market.outcomes].sort((left, right) => left.id - right.id);
   const leadingOutcomeIndex = orderedOutcomes.reduce(
@@ -113,15 +123,17 @@ export default function MarketCard({ market, username, balance, positions, onCha
     }
   }
 
-  async function handleResolve(outcomeId) {
-    if (!outcomeId) return;
-    const isDraw = outcomeId === "draw";
-    if (!confirm(isDraw
-      ? "Vyhodnotit zápas jako remízu a vrátit všechny vklady? Tuto akci nelze vrátit."
-      : "Vyhodnotit zápas a vyplatit výherní sázky? Tuto akci nelze vrátit.")) return;
+  async function handleResolve() {
+    const result = matchResult.trim();
+    if (!/^\d+\s*:\s*\d+$/.test(result)) {
+      setMessage({ type: "error", text: "Zadej výsledek ve formátu 5:2." });
+      return;
+    }
+    if (!confirm("Vyhodnotit zápas podle tohoto výsledku? Tuto akci nelze vrátit.")) return;
     setAdminBusy(true);
     try {
-      await api.resolveMarket(market.id, isDraw ? null : Number(outcomeId), isDraw);
+      await api.resolveMarket(market.id, result);
+      setResolveOpen(false);
       onChanged();
     } catch (err) {
       alert(err.message);
@@ -135,6 +147,12 @@ export default function MarketCard({ market, username, balance, positions, onCha
       <div className="market-card__head">
         <div>
           <h3 className="market-card__title">{market.title}</h3>
+          {market.scheduled_at && (
+            <p className="market-card__schedule">{formatMatchDate(market.scheduled_at)}</p>
+          )}
+          {market.status === "resolved" && market.result && (
+            <p className="market-card__result">Výsledek {market.result}</p>
+          )}
           {market.description && <p className="market-card__desc">{market.description}</p>}
         </div>
         <span className={`status-badge ${market.status}`}>
@@ -217,26 +235,40 @@ export default function MarketCard({ market, username, balance, positions, onCha
               Znovu otevřít sázky
             </button>
           )}
-          {market.status !== "resolved" && <div className="resolve-row">
-            <select
-              disabled={adminBusy}
-              defaultValue=""
-              onChange={(e) => handleResolve(e.target.value)}
-            >
-              <option value="" disabled>
-                Vyhodnotit jako…
-              </option>
-              <option value="draw">Remíza / Draw</option>
-              {orderedOutcomes.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
-          </div>}
+          {market.status !== "resolved" && (
+            <button className="btn-small" disabled={adminBusy} onClick={() => setResolveOpen(true)}>
+              Vyhodnotit zápas
+            </button>
+          )}
           <button className="btn-small danger" disabled={adminBusy} onClick={handleDelete}>
             Smazat zápas
           </button>
+        </div>
+      )}
+      {resolveOpen && (
+        <div className="resolve-dialog-layer" role="presentation">
+          <button className="resolve-dialog-scrim" aria-label="Zavřít vyhodnocení" onClick={() => setResolveOpen(false)} />
+          <section className="resolve-dialog" role="dialog" aria-modal="true" aria-labelledby={`resolve-title-${market.id}`}>
+            <div className="resolve-dialog__head">
+              <div>
+                <p className="trade-sheet__eyebrow">Výsledek zápasu</p>
+                <h3 id={`resolve-title-${market.id}`}>{market.title}</h3>
+              </div>
+              <button className="icon-button" type="button" onClick={() => setResolveOpen(false)} aria-label="Zavřít vyhodnocení">×</button>
+            </div>
+            <p className="resolve-dialog__hint">Pořadí: {orderedOutcomes.map((outcome) => outcome.name).join(" : ")}</p>
+            <input
+              className="resolve-dialog__input"
+              inputMode="numeric"
+              placeholder="5:2"
+              value={matchResult}
+              onChange={(event) => setMatchResult(event.target.value)}
+              autoFocus
+            />
+            <button className="btn-primary resolve-dialog__submit" type="button" disabled={adminBusy} onClick={handleResolve}>
+              {adminBusy ? "Vyhodnocování…" : "Potvrdit výsledek"}
+            </button>
+          </section>
         </div>
       )}
     </div>

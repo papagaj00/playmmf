@@ -41,9 +41,11 @@ def _market_to_out(market: models.Market) -> schemas.MarketOut:
         title=market.title,
         description=market.description,
         b=market.b,
+        scheduled_at=market.scheduled_at,
         status=market.status,
         resolved_outcome_id=market.resolved_outcome_id,
         resolved_as_draw=market.resolved_as_draw,
+        result=market.result,
         outcomes=[
             schemas.OutcomeOut(
                 id=o.id, name=o.name, quantity=o.quantity, price=price_map[o.id]
@@ -151,6 +153,11 @@ def admin_users(db: Session = Depends(get_db)):
     return crud.list_users(db)
 
 
+@app.get("/teams", response_model=list[schemas.TeamOut], dependencies=[Depends(require_admin)])
+def teams(db: Session = Depends(get_db)):
+    return crud.list_teams(db)
+
+
 @app.post("/admin/factory-reset", dependencies=[Depends(require_admin)])
 def factory_reset(db: Session = Depends(get_db)):
     crud.factory_reset(db)
@@ -193,7 +200,13 @@ def unban_user(payload: schemas.BanUserRequest, db: Session = Depends(get_db)):
 @app.post("/markets", response_model=schemas.MarketOut, dependencies=[Depends(require_admin)])
 def create_market(payload: schemas.MarketCreate, db: Session = Depends(get_db)):
     market = crud.create_market(
-        db, payload.title, payload.description, payload.b, payload.outcome_names
+        db,
+        payload.title,
+        payload.description,
+        payload.b,
+        payload.outcome_names,
+        payload.scheduled_at,
+        payload.team_ids,
     )
     return _market_to_out(market)
 
@@ -242,9 +255,7 @@ def resolve_market(market_id: int, payload: schemas.MarketResolve, db: Session =
     if not market:
         raise HTTPException(status_code=404, detail="Zápas nebyl nalezen.")
     try:
-        market = crud.resolve_market(
-            db, market, payload.winning_outcome_id, payload.draw
-        )
+        market = crud.resolve_market_by_result(db, market, payload.result)
     except KeyError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except crud.MarketNotOpen as e:

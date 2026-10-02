@@ -1273,6 +1273,17 @@ select {
     .leaderboard-view .leaderboard-table td:last-child {
         width: 126px;
     }
+
+    .leaderboard-view .leaderboard-table th:nth-child(3),
+    .leaderboard-view .leaderboard-table td:nth-child(3) {
+        width: 130px;
+        text-align: right;
+    }
+
+    .leaderboard-view .leaderboard-table th:nth-child(3),
+    .leaderboard-view .leaderboard-table td:nth-child(3) {
+        width: 108px;
+    }
 }
 
 .leaderboard-row--current td {
@@ -1355,4 +1366,81 @@ select {
     width: 100%;
     min-width: 620px;
     table-layout: fixed;
+}
+
+.market-card__schedule {
+    margin: 3px 0 0;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.resolve-dialog-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+}
+
+.resolve-dialog-scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    border: 0;
+}
+
+.resolve-dialog {
+    position: relative;
+    width: min(100%, 430px);
+    display: grid;
+    gap: 14px;
+    padding: 20px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 22px 70px rgba(0, 0, 0, 0.6);
+}
+
+.resolve-dialog__head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.resolve-dialog h3,
+.resolve-dialog__hint {
+    margin: 0;
+}
+
+.resolve-dialog__hint {
+    color: var(--text-dim);
+    font-size: 13px;
+}
+
+.resolve-dialog__input {
+    width: 100%;
+    min-height: 58px;
+    color: var(--text);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: var(--font-mono);
+    font-size: 28px;
+    text-align: center;
+}
+
+.resolve-dialog__submit {
+    width: 100%;
+}
+
+.market-card__result {
+    margin: 3px 0 0;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
 }

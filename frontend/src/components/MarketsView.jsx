@@ -2,8 +2,16 @@ import MarketCard from "./MarketCard";
 import LoadingState from "./LoadingState";
 
 export default function MarketsView({ markets, username, balance, positions, loading, onChanged, isAdmin }) {
-  const open = markets.filter((m) => m.status !== "resolved");
-  const resolved = markets.filter((m) => m.status === "resolved");
+  const sortBySchedule = (left, right) => {
+    if (left.scheduled_at && right.scheduled_at) {
+      return new Date(left.scheduled_at) - new Date(right.scheduled_at);
+    }
+    if (left.scheduled_at) return -1;
+    if (right.scheduled_at) return 1;
+    return 0;
+  };
+  const open = markets.filter((m) => m.status !== "resolved").sort(sortBySchedule);
+  const resolved = markets.filter((m) => m.status === "resolved").sort(sortBySchedule);
 
   return (
     <div>

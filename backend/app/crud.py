@@ -224,21 +224,57 @@ def set_user_banned(db: Session, email: str, banned: bool) -> models.User:
 
 def get_leaderboard(db: Session) -> list[dict]:
     users = db.query(models.User).all()
-    board = [{"username": user.username, "balance": user.balance} for user in users]
-    board.sort(key=lambda row: row["balance"], reverse=True)
+    board = []
+    for user in users:
+        wagered_value = sum(
+            position.stake_amount or 0.0
+            for position in user.positions
+            if position.outcome.market.status != models.MarketStatus.RESOLVED
+        )
+        board.append(
+            {
+                "username": user.username,
+                "balance": user.balance,
+                "wagered_value": wagered_value,
+                "total_value": user.balance + wagered_value,
+            }
+        )
+    board.sort(key=lambda row: row["total_value"], reverse=True)
     return board
+
+
+def list_teams(db: Session) -> list[models.Team]:
+    return db.query(models.Team).order_by(models.Team.sort_order.asc()).all()
 
 
 # ---------- Markets ----------
 
 def create_market(
-    db: Session, title: str, description: str, b: float, outcome_names: list[str]
+    db: Session,
+    title: str,
+    description: str,
+    b: float,
+    outcome_names: list[str],
+    scheduled_at: datetime | None = None,
+    team_ids: list[int] | None = None,
 ) -> models.Market:
-    market = models.Market(title=title, description=description, b=b)
+    if team_ids:
+        teams = [db.get(models.Team, team_id) for team_id in team_ids]
+        if len(teams) != len(team_ids) or any(team is None for team in teams):
+            raise KeyError("team not found")
+        outcome_names = [team.name for team in teams]
+    else:
+        teams = [None] * len(outcome_names)
+    market = models.Market(
+        title=title,
+        description=description,
+        b=b,
+        scheduled_at=scheduled_at,
+    )
     db.add(market)
     db.flush()
-    for name in outcome_names:
-        db.add(models.Outcome(market_id=market.id, name=name, quantity=b))
+    for name, team in zip(outcome_names, teams):
+        db.add(models.Outcome(market_id=market.id, name=name, team_id=team.id if team else None, quantity=b))
     db.commit()
     db.refresh(market)
     return market
@@ -510,6 +546,7 @@ def resolve_market(
     market: models.Market,
     winning_outcome_id: int | None,
     draw: bool = False,
+    result: str | None = None,
 ) -> models.Market:
     if market.status == models.MarketStatus.RESOLVED:
         raise MarketNotOpen("Tento zápas už byl vyhodnocen.")
@@ -551,9 +588,23 @@ def resolve_market(
     market.status = models.MarketStatus.RESOLVED
     market.resolved_outcome_id = winning_outcome_id
     market.resolved_as_draw = draw
+    market.result = result
     db.commit()
     db.refresh(market)
     return market
+
+
+def resolve_market_by_result(db: Session, market: models.Market, result: str) -> models.Market:
+    if len(market.outcomes) != 2:
+        raise InvalidTrade("Skóre ve formátu A:B je podporováno pro zápasy se dvěma výsledky.")
+    scores = [int(part.strip()) for part in result.split(":")]
+    if any(score < 0 for score in scores):
+        raise InvalidTrade("Skóre nemůže být záporné.")
+    normalized_result = f"{scores[0]}:{scores[1]}"
+    if scores[0] == scores[1]:
+        return resolve_market(db, market, None, True, normalized_result)
+    winner = market.outcomes[0].id if scores[0] > scores[1] else market.outcomes[1].id
+    return resolve_market(db, market, winner, False, normalized_result)
 
 
 def get_positions(db: Session, user: models.User) -> list[dict]:

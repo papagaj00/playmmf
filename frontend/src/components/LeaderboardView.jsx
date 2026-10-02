@@ -27,7 +27,7 @@ export default function LeaderboardView({ entries, username, loading }) {
                   <div className="podium-player">
                     <span className="podium-medal">{rank === 1 ? "1" : rank === 2 ? "2" : "3"}</span>
                     <strong>{row.username}</strong>
-                    <span>{formatPoints(row.balance)} bodů</span>
+                    <span>{formatPoints(row.total_value)} bodů</span>
                   </div>
                   <div className="podium-block"><span>{rank}</span></div>
                 </div>
@@ -42,6 +42,7 @@ export default function LeaderboardView({ entries, username, loading }) {
                   <th>#</th>
                   <th>Hráč</th>
                   <th>Body</th>
+                  <th>Hodnota</th>
                 </tr>
               </thead>
               <tbody>
@@ -50,6 +51,7 @@ export default function LeaderboardView({ entries, username, loading }) {
                     <td>{index + 4}</td>
                     <td>{row.username}</td>
                     <td className="num">{formatPoints(row.balance)}</td>
+                    <td className="num">{formatPoints(row.total_value)}</td>
                   </tr>
                 ))}
               </tbody>
