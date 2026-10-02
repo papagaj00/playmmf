@@ -146,7 +146,11 @@ export default function MarketCard({ market, username, balance, positions, onCha
     <div className={`market-card status-${market.status}`}>
       <div className="market-card__head">
         <div>
-          <h3 className="market-card__title">{market.title}</h3>
+          <h3 className={`market-card__title ${market.title.includes(" vs ") ? "market-card__title--matchup" : ""}`}>
+            {market.title.includes(" vs ")
+              ? market.title.split(" vs ").map((teamName) => <span key={teamName}>{teamName}</span>)
+              : market.title}
+          </h3>
           {market.scheduled_at && (
             <p className="market-card__schedule">{formatMatchDate(market.scheduled_at)}</p>
           )}

@@ -1447,3 +1447,16 @@ select {
     font-size: 13px;
     font-weight: 700;
 }
+
+.market-card__title--matchup {
+    display: grid;
+    gap: 1px;
+    line-height: 0.95;
+    white-space: normal;
+}
+
+.market-card__title--matchup span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
