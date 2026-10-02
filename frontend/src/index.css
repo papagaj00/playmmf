@@ -527,7 +527,7 @@ select {
     align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
-    padding: 16px 16px 8px;
+    padding: 16px 16px 12px;
 }
 
 .market-card__title {
@@ -1450,8 +1450,8 @@ select {
 
 .market-card__title--matchup {
     display: grid;
-    gap: 1px;
-    line-height: 0.95;
+    gap: 3px;
+    line-height: 1.1;
     white-space: normal;
 }
 
