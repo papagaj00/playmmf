@@ -121,9 +121,6 @@ export default function App() {
             <div className="maintenance-screen__mark">●</div>
             <h2>Maintenance break</h2>
             <p>The app is temporarily paused. Please check back later.</p>
-            <button className="btn-small" type="button" onClick={() => setTab("admin")}>
-              Admin access
-            </button>
           </div>
         )}
         {!maintenance && tab === "markets" && (
@@ -151,7 +148,7 @@ export default function App() {
           />
         )}
       </div>
-      <BottomNav tab={tab} onChange={setTab} />
+      <BottomNav tab={tab} onChange={setTab} isAdmin={isAdmin} />
     </div>
   );
 }
