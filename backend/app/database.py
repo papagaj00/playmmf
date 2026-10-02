@@ -67,29 +67,14 @@ def ensure_pool_columns() -> None:
         market_columns = {column["name"] for column in inspect(engine).get_columns("markets")}
         if "resolved_as_draw" not in market_columns:
             connection.execute(text("ALTER TABLE markets ADD COLUMN resolved_as_draw BOOLEAN NOT NULL DEFAULT FALSE"))
-        # Preserve old open positions with their legacy share payout as a
-        # fallback. New positions use the explicit pool-bet fields.
-        connection.execute(text(
-            "UPDATE positions SET stake_amount = COALESCE(stake_amount, 0), "
-            "locked_payout = CASE WHEN COALESCE(locked_payout, 0) = 0 AND shares != 0 "
-            "THEN shares ELSE COALESCE(locked_payout, 0) END"
-        ))
         for order, name in enumerate(TEAM_NAMES, start=1):
             connection.execute(
                 text("INSERT INTO teams (name, sort_order) VALUES (:name, :sort_order) "
                      "ON CONFLICT (name) DO NOTHING"),
                 {"name": name, "sort_order": order},
             )
-        # Seed only untouched zero-state markets. Nonzero legacy quantities
-        # are preserved so historical market records remain inspectable.
-        connection.execute(text(
-            "UPDATE outcomes SET quantity = ("
-            "SELECT b FROM markets WHERE markets.id = outcomes.market_id"
-            ") WHERE quantity = 0 AND NOT EXISTS ("
-            "SELECT 1 FROM outcomes other WHERE other.market_id = outcomes.market_id "
-            "AND other.quantity != 0"
-            ")"
-        ))
+        # Existing outcome quantities and legacy positions are preserved. The
+        # application handles zero/null migration fields with legacy fallbacks.
 
 
 class Base(DeclarativeBase):
