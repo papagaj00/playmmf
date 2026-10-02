@@ -1,49 +1,21 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 
-export default function AdminView({ adminKey, setAdminKey, onAdminVerificationChange, onMarketCreated, onFactoryReset, maintenance, onMaintenanceChange }) {
+export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, maintenance, onMaintenanceChange }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [b, setB] = useState(5000);
   const [outcomeNames, setOutcomeNames] = useState(["", ""]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
-  const [verified, setVerified] = useState(false);
-  const [checkingKey, setCheckingKey] = useState(false);
   const [points, setPoints] = useState(5);
   const [users, setUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState("");
   const [email, setEmail] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
-    if (!adminKey.trim()) {
-      setVerified(false);
-      onAdminVerificationChange(false);
-      return undefined;
-    }
-    setCheckingKey(true);
-    api.verifyAdminKey(adminKey)
-      .then(() => {
-        if (!cancelled) {
-          setVerified(true);
-          onAdminVerificationChange(true);
-          api.getAdminUsers(adminKey).then(setUsers).catch(() => setUsers([]));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setVerified(false);
-          onAdminVerificationChange(false);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setCheckingKey(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [adminKey, onAdminVerificationChange]);
+    if (isAdmin) api.getAdminUsers().then(setUsers).catch(() => setUsers([]));
+  }, [isAdmin]);
 
   async function handleFactoryReset() {
     const confirmed = window.confirm(
@@ -54,7 +26,7 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
     setBusy(true);
     setMessage(null);
     try {
-      await api.factoryReset(adminKey);
+      await api.factoryReset();
       onFactoryReset();
     } catch (err) {
       setMessage({ type: "error", text: err.message });
@@ -66,7 +38,7 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
     setBusy(true);
     setMessage(null);
     try {
-      const result = await api.setMaintenance(!maintenance, adminKey);
+      const result = await api.setMaintenance(!maintenance);
       onMaintenanceChange(result.maintenance);
       setMessage({
         type: "success",
@@ -89,7 +61,7 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
     setBusy(true);
     setMessage(null);
     try {
-      const result = await api.adjustBalances(value, selectedUserId, adminKey);
+      const result = await api.adjustBalances(value, selectedUserId);
       setMessage({
         type: "success",
         text: result.scope === "all"
@@ -114,7 +86,7 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
     setMessage(null);
     try {
       const action = banned ? api.banUser : api.unbanUser;
-      await action(normalizedEmail, adminKey);
+      await action(normalizedEmail);
       setMessage({ type: "success", text: banned ? "Hráč byl zablokován." : "Hráč byl odblokován." });
       setEmail("");
       onMarketCreated();
@@ -151,7 +123,6 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
     try {
       await api.createMarket(
         { title: title.trim(), description: description.trim(), b: Number(b), outcome_names: names },
-        adminKey
       );
       setMessage({ type: "success", text: "Zápas byl vytvořen." });
       setTitle("");
@@ -169,24 +140,7 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
     <div>
       <h2 className="section-title">Správa</h2>
 
-      <div className="admin-form">
-        <label>Administrátorský klíč</label>
-        <input
-          type="password"
-          value={adminKey}
-          onChange={(e) => {
-            setAdminKey(e.target.value);
-            setVerified(false);
-            onAdminVerificationChange(false);
-          }}
-        />
-        {checkingKey && <p className="admin-key-status">Ověřování klíče…</p>}
-        {!checkingKey && adminKey && !verified && (
-          <p className="admin-key-status error">Klíč není platný.</p>
-        )}
-      </div>
-
-      {verified && <>
+      {isAdmin && <>
         <section className="admin-form maintenance-control">
           <h3>Maintenance break</h3>
           <p>{maintenance ? "Hráči nyní nemají k aplikaci přístup." : "Pozastav přístup hráčům do aplikace."}</p>
@@ -270,7 +224,7 @@ export default function AdminView({ adminKey, setAdminKey, onAdminVerificationCh
           <button
             type="button"
             className="btn-small"
-            disabled={busy || !adminKey.trim()}
+            disabled={busy}
             onClick={handleFactoryReset}
           >
             Obnovit aplikaci do výchozího stavu

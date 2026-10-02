@@ -10,7 +10,7 @@ const STATUS_LABELS = {
   resolved: "vyhodnocený",
 };
 
-export default function MarketCard({ market, username, balance, positions, onChanged, isAdmin, adminKey }) {
+export default function MarketCard({ market, username, balance, positions, onChanged, isAdmin }) {
   const [adminBusy, setAdminBusy] = useState(false);
   const [selectedOutcomeId, setSelectedOutcomeId] = useState(null);
   const [amount, setAmount] = useState(100);
@@ -88,9 +88,9 @@ export default function MarketCard({ market, username, balance, positions, onCha
     setAdminBusy(true);
     try {
       if (action === "close") {
-        await api.setMarketStatus(market.id, "closed", adminKey);
+        await api.setMarketStatus(market.id, "closed");
       } else if (action === "reopen") {
-        await api.setMarketStatus(market.id, "open", adminKey);
+        await api.setMarketStatus(market.id, "open");
       }
       onChanged();
     } catch (err) {
@@ -104,7 +104,7 @@ export default function MarketCard({ market, username, balance, positions, onCha
     if (!confirm("Trvale smazat tento zápas, všechny sázky a jeho historii? Tuto akci nelze vrátit.")) return;
     setAdminBusy(true);
     try {
-      await api.deleteMarket(market.id, adminKey);
+      await api.deleteMarket(market.id);
       onChanged();
     } catch (err) {
       alert(err.message);
@@ -121,7 +121,7 @@ export default function MarketCard({ market, username, balance, positions, onCha
       : "Vyhodnotit zápas a vyplatit výherní sázky? Tuto akci nelze vrátit.")) return;
     setAdminBusy(true);
     try {
-      await api.resolveMarket(market.id, isDraw ? null : Number(outcomeId), adminKey, isDraw);
+      await api.resolveMarket(market.id, isDraw ? null : Number(outcomeId), isDraw);
       onChanged();
     } catch (err) {
       alert(err.message);

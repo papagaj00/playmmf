@@ -8,11 +8,8 @@ import PortfolioView from "./components/PortfolioView";
 import AdminView from "./components/AdminView";
 import BottomNav from "./components/BottomNav";
 
-const ADMIN_KEY_KEY = "playmmf-admin-key";
-
 export default function App() {
   const [username, setUsername] = useState("");
-  const [adminKey, setAdminKey] = useState(() => localStorage.getItem(ADMIN_KEY_KEY) || "");
   const [adminVerified, setAdminVerified] = useState(false);
   const [tab, setTab] = useState("markets");
 
@@ -30,6 +27,7 @@ export default function App() {
       .then((currentUser) => {
         setUser(currentUser);
         setUsername(currentUser.username);
+        setAdminVerified(currentUser.is_admin);
       })
       .catch(() => setUsername(""));
   }, []);
@@ -70,14 +68,11 @@ export default function App() {
     return () => clearInterval(interval);
   }, [refreshAll]);
 
-  useEffect(() => {
-    localStorage.setItem(ADMIN_KEY_KEY, adminKey);
-  }, [adminKey]);
-
   function handleLogin(currentUser) {
     setInitialDataLoading(true);
     setUser(currentUser);
     setUsername(currentUser.username);
+    setAdminVerified(currentUser.is_admin);
   }
 
   function handleLogout() {
@@ -140,7 +135,6 @@ export default function App() {
             loading={initialDataLoading}
             onChanged={refreshAll}
             isAdmin={isAdmin}
-            adminKey={adminKey}
           />
         )}
         {!maintenance && tab === "portfolio" && user && (
@@ -149,9 +143,7 @@ export default function App() {
         {!maintenance && tab === "leaderboard" && <LeaderboardView entries={leaderboard} username={username} loading={initialDataLoading} />}
         {tab === "admin" && (
           <AdminView
-            adminKey={adminKey}
-            setAdminKey={setAdminKey}
-            onAdminVerificationChange={setAdminVerified}
+            isAdmin={adminVerified}
             onMarketCreated={refreshAll}
             onFactoryReset={handleFactoryReset}
             maintenance={maintenance}

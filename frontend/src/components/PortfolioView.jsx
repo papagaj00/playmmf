@@ -27,24 +27,24 @@ export default function PortfolioView({ user, positions, transactions }) {
       ) : (
         <div className="portfolio-table-wrap" style={{ marginBottom: 28 }}>
           <table className="positions-table">
-          <thead>
-            <tr>
-              <th>Zápas</th>
-              <th>Tip</th>
-              <th>Možná výhra</th>
-              <th>Stav</th>
-            </tr>
-          </thead>
-          <tbody>
-            {positions.map((p) => (
-              <tr key={`${p.market_id}-${p.outcome_id}`}>
-                <td>{p.market_title}</td>
-                <td>{p.outcome_name}</td>
-                <td className="num">{formatPoints(p.potential_payout)}</td>
-                <td>{STATUS_LABELS[p.market_status] || p.market_status}</td>
+            <thead>
+              <tr>
+                <th>Zápas</th>
+                <th>Tip</th>
+                <th>Možná výhra</th>
+                <th>Stav</th>
               </tr>
-            ))}
-          </tbody>
+            </thead>
+            <tbody>
+              {positions.map((p) => (
+                <tr key={`${p.market_id}-${p.outcome_id}`}>
+                  <td>{p.market_title}</td>
+                  <td>{p.outcome_name}</td>
+                  <td className="num">{formatPoints(p.potential_payout)}</td>
+                  <td>{STATUS_LABELS[p.market_status] || p.market_status}</td>
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       )}
@@ -57,37 +57,37 @@ export default function PortfolioView({ user, positions, transactions }) {
       ) : (
         <div className="portfolio-table-wrap">
           <table className="positions-table">
-          <thead>
-            <tr>
-              <th>Zápas</th>
-              <th>Tip</th>
-              <th>Vklad</th>
-              <th>Výsledek</th>
-            </tr>
-          </thead>
-          <tbody>
-            {activity.slice(0, 20).map((t) => (
-              <tr key={t.id}>
-                {t.type === "grant" ? (
-                  <>
-                    <td>Startovní body</td>
-                    <td>—</td>
-                    <td className="num">+{formatPoints(Math.abs(t.amount))} bodů</td>
-                    <td className="activity-result neutral">Připsáno</td>
-                  </>
-                ) : (
-                  <>
-                    <td>{t.market_title || "—"}</td>
-                    <td>{t.outcome_name || "—"}</td>
-                    <td className="num">{formatPoints(t.amount)} bodů</td>
-                    <td className={`activity-result ${t.resolved ? (t.won ? "won" : "lost") : "pending"}`}>
-                      {!t.resolved ? "Čeká" : t.draw ? "Vráceno" : t.won ? `+${formatPoints(t.winnings)} bodů` : "Prohra"}
-                    </td>
-                  </>
-                )}
+            <thead>
+              <tr>
+                <th>Zápas</th>
+                <th>Tip</th>
+                <th>Vklad</th>
+                <th>Výsledek</th>
               </tr>
-            ))}
-          </tbody>
+            </thead>
+            <tbody>
+              {activity.slice(0, 20).map((t) => (
+                <tr key={t.id}>
+                  {t.type === "grant" ? (
+                    <>
+                      <td>Startovní body</td>
+                      <td>—</td>
+                      <td className="num">+{formatPoints(Math.abs(t.amount))} bodů</td>
+                      <td className="activity-result neutral">Připsáno</td>
+                    </>
+                  ) : (
+                    <>
+                      <td>{t.market_title || "—"}</td>
+                      <td>{t.outcome_name || "—"}</td>
+                      <td className="num">{formatPoints(t.amount)} bodů</td>
+                      <td className={`activity-result ${t.resolved ? (t.won ? "won" : "lost") : "pending"}`}>
+                        {!t.resolved ? "Čeká" : t.draw ? "Vráceno" : t.won ? `+${formatPoints(t.winnings)} bodů` : "Prohra"}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+            </tbody>
           </table>
         </div>
       )}

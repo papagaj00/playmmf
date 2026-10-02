@@ -10,9 +10,8 @@ function setToken(token) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
-async function request(path, { method = "GET", body, adminKey } = {}) {
+async function request(path, { method = "GET", body } = {}) {
   const headers = { "Content-Type": "application/json" };
-  if (adminKey) headers["X-Admin-Key"] = adminKey;
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
@@ -58,41 +57,38 @@ export const api = {
   getUser: (username) => request(`/users/${encodeURIComponent(username)}`),
   getPositions: (username) => request(`/users/${encodeURIComponent(username)}/positions`),
   getTransactions: (username) => request(`/users/${encodeURIComponent(username)}/transactions`),
-  verifyAdminKey: (adminKey) => request("/admin/verify", { adminKey }),
-  setMaintenance: (maintenance, adminKey) =>
+  verifyAdmin: () => request("/admin/verify"),
+  setMaintenance: (maintenance) =>
     request("/admin/maintenance", {
       method: "POST",
       body: { maintenance },
-      adminKey,
     }),
-  getAdminUsers: (adminKey) => request("/admin/users", { adminKey }),
+  getAdminUsers: () => request("/admin/users"),
   getLeaderboard: () => request("/leaderboard"),
-  factoryReset: (adminKey) =>
-    request("/admin/factory-reset", { method: "POST", adminKey }),
-  adjustBalances: (points, userId, adminKey) =>
+  factoryReset: () =>
+    request("/admin/factory-reset", { method: "POST" }),
+  adjustBalances: (points, userId) =>
     request("/admin/balance-adjustment", {
       method: "POST",
       body: { points, user_id: userId || null },
-      adminKey,
     }),
-  banUser: (email, adminKey) =>
-    request("/admin/users/ban", { method: "POST", body: { email }, adminKey }),
-  unbanUser: (email, adminKey) =>
-    request("/admin/users/unban", { method: "POST", body: { email }, adminKey }),
+  banUser: (email) =>
+    request("/admin/users/ban", { method: "POST", body: { email } }),
+  unbanUser: (email) =>
+    request("/admin/users/unban", { method: "POST", body: { email } }),
 
   listMarkets: () => request("/markets"),
   getMarket: (id) => request(`/markets/${id}`),
-  createMarket: (payload, adminKey) =>
-    request("/markets", { method: "POST", body: payload, adminKey }),
-  setMarketStatus: (id, status, adminKey) =>
-    request(`/markets/${id}/status?status=${status}`, { method: "POST", adminKey }),
-  deleteMarket: (id, adminKey) =>
-    request(`/markets/${id}`, { method: "DELETE", adminKey }),
-  resolveMarket: (id, winning_outcome_id, adminKey, draw = false) =>
+  createMarket: (payload) =>
+    request("/markets", { method: "POST", body: payload }),
+  setMarketStatus: (id, status) =>
+    request(`/markets/${id}/status?status=${status}`, { method: "POST" }),
+  deleteMarket: (id) =>
+    request(`/markets/${id}`, { method: "DELETE" }),
+  resolveMarket: (id, winning_outcome_id, draw = false) =>
     request(`/markets/${id}/resolve`, {
       method: "POST",
       body: { winning_outcome_id, draw },
-      adminKey,
     }),
 
   quoteWager: (marketId, outcome_id, amount) =>

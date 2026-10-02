@@ -1,6 +1,6 @@
 import os
 
-os.environ["ADMIN_KEY"] = "test-admin-key"
+os.environ["ADMIN_EMAIL"] = "admin@gbn.cz"
 
 import pytest
 from fastapi.testclient import TestClient
@@ -31,7 +31,15 @@ def override_get_db():
 
 main.app.dependency_overrides[database.get_db] = override_get_db
 client = TestClient(main.app)
-ADMIN_HEADERS = {"X-Admin-Key": "test-admin-key"}
+admin_registration = client.post(
+    "/auth/register",
+    json={
+        "email": "admin@gbn.cz",
+        "username": "test-admin",
+        "password": "spravneheslo",
+    },
+)
+ADMIN_HEADERS = {"Authorization": f"Bearer {admin_registration.json()['token']}"}
 
 
 def register(username: str, domain: str = "gbn.cz"):
@@ -96,7 +104,7 @@ def test_logout_revokes_session_and_personal_access_isolation():
     assert client.get("/auth/me").status_code == 401
 
 
-def test_market_creation_requires_admin_key():
+def test_market_creation_requires_authenticated_admin():
     r = client.post(
         "/markets",
         json={
@@ -105,7 +113,7 @@ def test_market_creation_requires_admin_key():
             "outcome_names": ["A wins", "B wins"],
         },
     )
-    assert r.status_code == 403
+    assert r.status_code == 401
 
 
 def test_full_trading_flow():
@@ -470,9 +478,9 @@ def test_cannot_wager_on_resolved_market():
     assert r.status_code == 400
 
 
-def test_admin_key_verification():
+def test_admin_email_verification():
     assert client.get("/admin/verify").status_code == 403
-    assert client.get("/admin/verify", headers={"X-Admin-Key": "wrong"}).status_code == 403
+    assert client.get("/admin/verify", headers={"Authorization": "Bearer wrong"}).status_code == 401
     response = client.get("/admin/verify", headers=ADMIN_HEADERS)
     assert response.status_code == 200
     assert response.json() == {"valid": True}
@@ -654,6 +662,12 @@ def test_factory_reset_requires_admin_key_and_deletes_all_data():
     assert client.get("/leaderboard").json() == []
     assert client.get("/markets").json() == []
     assert client.get("/users/reset-user").status_code == 401
+    admin = client.post(
+        "/auth/register",
+        json={"email": "admin@gbn.cz", "username": "test-admin", "password": "spravneheslo"},
+    )
+    assert admin.status_code == 200
+    ADMIN_HEADERS["Authorization"] = f"Bearer {admin.json()['token']}"
 
 
 def test_factory_reset_deletes_resolved_markets():

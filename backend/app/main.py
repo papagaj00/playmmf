@@ -7,8 +7,7 @@ from sqlalchemy.orm import Session
 from app import auth, crud, models, schemas
 from app.database import Base, ensure_auth_columns, ensure_pool_columns, engine, get_db
 
-# Simple shared-secret admin auth. Configure ADMIN_KEY in every environment.
-ADMIN_KEY = os.environ.get("ADMIN_KEY")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "prokop_jan@gymbn.cz").strip().casefold()
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
@@ -28,13 +27,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
-    if not ADMIN_KEY:
-        raise HTTPException(status_code=503, detail="Administrátorský klíč není nakonfigurován.")
-    if x_admin_key != ADMIN_KEY:
-        raise HTTPException(status_code=403, detail="Je vyžadován administrátorský klíč.")
 
 
 def require_app_open(db: Session = Depends(get_db)) -> None:
@@ -69,6 +61,12 @@ def get_current_user(
     if authorization and authorization.lower().startswith("bearer "):
         token = authorization.split(" ", 1)[1]
     return auth.current_user(db, token=token, gbn_session=gbn_session)
+
+
+def require_admin(user: models.User = Depends(get_current_user)) -> models.User:
+    if not user.is_admin or user.email.casefold() != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Tento účet nemá administrátorská oprávnění.")
+    return user
 
 
 # ---------- Users ----------

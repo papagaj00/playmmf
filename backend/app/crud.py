@@ -1,5 +1,6 @@
 import hashlib
 import math
+import os
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -10,6 +11,7 @@ STARTING_BALANCE = 10000.0
 MIN_TRADE_SHARES = 1.0
 MIN_TRADE_AMOUNT = 0.01
 MIN_WAGER_AMOUNT = 100.0
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "prokop_jan@gymbn.cz").strip().casefold()
 
 
 class InsufficientFunds(Exception):
@@ -97,6 +99,7 @@ def register_user(db: Session, email: str, username: str, password: str) -> tupl
         username=username,
         password_hash=auth.hash_password(password),
         balance=STARTING_BALANCE,
+        is_admin=email == ADMIN_EMAIL,
     )
     db.add(user)
     db.flush()

@@ -46,9 +46,10 @@ python -m venv .venv   # or use your existing shared venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# ADMIN_KEY protects match creation, administration, and resolution — pick something and share
-# it only with whoever is running the tournament.
-ADMIN_KEY=your-secret-here uvicorn app.main:app --reload
+# ADMIN_EMAIL identifies the single account with admin privileges.
+# It defaults to prokop_jan@gymbn.cz.
+$env:ADMIN_EMAIL="prokop_jan@gymbn.cz"
+uvicorn app.main:app --reload
 
 # For a frontend served from another origin, configure CORS before starting
 # Uvicorn. Multiple origins can be comma-separated.
@@ -82,9 +83,8 @@ deployed), copy `.env.example` to `.env` and set `VITE_API_URL`.
 
 1. Anyone opens the frontend and registers with a school email, username,
   and password. Only `@gbn.cz` and `@gymbn.cz` addresses are accepted.
-2. Whoever is running the tournament enters the `ADMIN_KEY` in the Admin
-  tab, then creates a match per game (title + possible results + a
-  initial pool value `b`).
+2. The account registered with `ADMIN_EMAIL` can open the Admin tab and create
+  matches (title + possible results + an initial pool value `b`).
 3. The Admin tab can grant or remove points from every player, ban or unban a
   player by school email, permanently delete matches, and perform a factory
   reset. Balance changes are recorded in transaction history; balance removal
@@ -108,9 +108,9 @@ possible payouts in mind.
 
 ## Notes / things to decide before running it for real
 
-- **Admin key**: currently a single shared secret via the `ADMIN_KEY`
-  environment variable, checked via an `X-Admin-Key` header. Fine for a
-  small trusted group; swap for real accounts/auth if this grows.
+- **Admin account**: the email in `ADMIN_EMAIL` is the only account granted
+  admin privileges. The backend checks both the authenticated session and the
+  exact email, so changing a browser flag cannot grant access.
 - **Existing database**: the new account fields are added at startup, but
   existing username-only accounts cannot log in. The ban field and pool-bet
   fields are added automatically at startup. Existing LMSR positions are
