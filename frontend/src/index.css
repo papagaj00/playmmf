@@ -1511,6 +1511,7 @@ select {
     gap: 5px;
     flex: 0 0 auto;
 }
+
 .market-card__result {
     color: var(--success);
     font-family: var(--font-mono);

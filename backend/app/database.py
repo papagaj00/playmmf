@@ -70,6 +70,28 @@ def ensure_pool_columns() -> None:
         _execute_migration("ALTER TABLE transactions ADD COLUMN locked_payout FLOAT")
     if "resolved_as_draw" not in market_columns:
         _execute_migration("ALTER TABLE markets ADD COLUMN resolved_as_draw BOOLEAN NOT NULL DEFAULT FALSE")
+    _execute_migration(
+        "UPDATE teams SET name = 'FC Bang Bros 1A' "
+        "WHERE name = 'FC Bang Bros 1B' "
+        "AND NOT EXISTS (SELECT 1 FROM teams WHERE name = 'FC Bang Bros 1A')"
+    )
+    _execute_migration(
+        "UPDATE outcomes SET name = 'FC Bang Bros 1A' "
+        "WHERE name = 'FC Bang Bros 1B'"
+    )
+    _execute_migration(
+        "UPDATE markets SET title = replace(title, 'FC Bang Bros 1B', 'FC Bang Bros 1A') "
+        "WHERE title LIKE '%FC Bang Bros 1B%'"
+    )
+    _execute_migration(
+        "UPDATE outcomes SET team_id = (SELECT id FROM teams WHERE name = 'FC Bang Bros 1A') "
+        "WHERE team_id = (SELECT id FROM teams WHERE name = 'FC Bang Bros 1B') "
+        "AND EXISTS (SELECT 1 FROM teams WHERE name = 'FC Bang Bros 1A')"
+    )
+    _execute_migration(
+        "DELETE FROM teams WHERE name = 'FC Bang Bros 1B' "
+        "AND EXISTS (SELECT 1 FROM teams WHERE name = 'FC Bang Bros 1A')"
+    )
 
 
 class Base(DeclarativeBase):

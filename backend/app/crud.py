@@ -15,7 +15,7 @@ ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "prokop_jan@gymbn.cz").strip().casef
 TEAM_NAMES = [
     "Gladiators 4B (A)", "Gladiators 4B (B)", "8A8", "FC Gooners 4A",
     "FC Bumass 7A8", "3A", "FC Alpacas 2A", "FC Tortas 2B", "6B8",
-    "AC Bez Práce 6A8", "FC Bohové 1B", "FC Bang Bros 1B",
+    "AC Bez Práce 6A8", "FC Bohové 1B", "FC Bang Bros 1A",
     "FC Fibula 5A8", "FC Six Seven 5B8",
 ]
 

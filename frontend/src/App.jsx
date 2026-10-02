@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { api } from "./api";
 import LoginScreen from "./components/LoginScreen";
 import TopBar from "./components/TopBar";
@@ -21,6 +21,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [initialDataLoading, setInitialDataLoading] = useState(true);
   const [maintenance, setMaintenance] = useState(false);
+  const refreshFailures = useRef(0);
 
   useEffect(() => {
     api.me()
@@ -55,12 +56,16 @@ export default function App() {
       setPositions(pos);
       setTransactions(tx);
       setError(null);
+      refreshFailures.current = 0;
     } catch (err) {
-      setError(err.message || "Server není dostupný");
+      refreshFailures.current += 1;
+      if (refreshFailures.current >= 2) {
+        setError(err.message || "Server není dostupný");
+      }
     } finally {
-      setInitialDataLoading(false);
+      setInitialDataLoading(refreshFailures.current > 0 && !markets.length);
     }
-  }, [username]);
+  }, [username, markets.length]);
 
   useEffect(() => {
     refreshAll();
