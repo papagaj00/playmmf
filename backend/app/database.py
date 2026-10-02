@@ -14,6 +14,18 @@ engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
+def _execute_migration(statement: str, parameters: dict | None = None) -> None:
+    """Execute one startup migration statement in its own short transaction.
+
+    Neon pooler connections can return multiple results for a single final
+    COMMIT after a long batch of DDL statements. Keeping each idempotent schema
+    change isolated makes retries safe and avoids that protocol failure.
+    """
+    with engine.connect() as connection:
+        connection.execute(text(statement), parameters or {})
+        connection.commit()
+
+
 def ensure_auth_columns() -> None:
     """Add auth columns when starting against a pre-auth database.
 
@@ -22,19 +34,18 @@ def ensure_auth_columns() -> None:
     older SQLite file created before auth existed.
     """
     columns = {column["name"] for column in inspect(engine).get_columns("users")}
-    with engine.begin() as connection:
-        if "email" not in columns:
-            connection.execute(text("ALTER TABLE users ADD COLUMN email VARCHAR(254)"))
-        if "password_hash" not in columns:
-            connection.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
-        if "is_banned" not in columns:
-            connection.execute(text(
-                "ALTER TABLE users ADD COLUMN is_banned BOOLEAN NOT NULL DEFAULT FALSE"
-            ))
-        connection.execute(
-            text("UPDATE users SET is_admin = TRUE WHERE lower(email) = :email"),
-            {"email": ADMIN_EMAIL},
+    if "email" not in columns:
+        _execute_migration("ALTER TABLE users ADD COLUMN email VARCHAR(254)")
+    if "password_hash" not in columns:
+        _execute_migration("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)")
+    if "is_banned" not in columns:
+        _execute_migration(
+            "ALTER TABLE users ADD COLUMN is_banned BOOLEAN NOT NULL DEFAULT FALSE"
         )
+    _execute_migration(
+        "UPDATE users SET is_admin = TRUE WHERE lower(email) = :email",
+        {"email": ADMIN_EMAIL},
+    )
 
 
 def ensure_pool_columns() -> None:
@@ -43,26 +54,22 @@ def ensure_pool_columns() -> None:
     transaction_columns = {column["name"] for column in inspect(engine).get_columns("transactions")}
     market_columns = {column["name"] for column in inspect(engine).get_columns("markets")}
     outcome_columns = {column["name"] for column in inspect(engine).get_columns("outcomes")}
-    with engine.begin() as connection:
-        if "team_id" not in outcome_columns:
-            connection.execute(text("ALTER TABLE outcomes ADD COLUMN team_id INTEGER"))
-        if "result" not in market_columns:
-            connection.execute(text("ALTER TABLE markets ADD COLUMN result VARCHAR(32)"))
-        if "scheduled_at" not in market_columns:
-            connection.execute(text(
-                "ALTER TABLE markets ADD COLUMN scheduled_at TIMESTAMP WITH TIME ZONE"
-            ))
-        if "stake_amount" not in position_columns:
-            connection.execute(text("ALTER TABLE positions ADD COLUMN stake_amount FLOAT NOT NULL DEFAULT 0"))
-        if "locked_payout" not in position_columns:
-            connection.execute(text("ALTER TABLE positions ADD COLUMN locked_payout FLOAT NOT NULL DEFAULT 0"))
-        if "locked_payout" not in transaction_columns:
-            connection.execute(text("ALTER TABLE transactions ADD COLUMN locked_payout FLOAT"))
-        market_columns = {column["name"] for column in inspect(engine).get_columns("markets")}
-        if "resolved_as_draw" not in market_columns:
-            connection.execute(text("ALTER TABLE markets ADD COLUMN resolved_as_draw BOOLEAN NOT NULL DEFAULT FALSE"))
-        # Existing outcome quantities and legacy positions are preserved. The
-        # application handles zero/null migration fields with legacy fallbacks.
+    if "team_id" not in outcome_columns:
+        _execute_migration("ALTER TABLE outcomes ADD COLUMN team_id INTEGER")
+    if "result" not in market_columns:
+        _execute_migration("ALTER TABLE markets ADD COLUMN result VARCHAR(32)")
+    if "scheduled_at" not in market_columns:
+        _execute_migration(
+            "ALTER TABLE markets ADD COLUMN scheduled_at TIMESTAMP WITH TIME ZONE"
+        )
+    if "stake_amount" not in position_columns:
+        _execute_migration("ALTER TABLE positions ADD COLUMN stake_amount FLOAT NOT NULL DEFAULT 0")
+    if "locked_payout" not in position_columns:
+        _execute_migration("ALTER TABLE positions ADD COLUMN locked_payout FLOAT NOT NULL DEFAULT 0")
+    if "locked_payout" not in transaction_columns:
+        _execute_migration("ALTER TABLE transactions ADD COLUMN locked_payout FLOAT")
+    if "resolved_as_draw" not in market_columns:
+        _execute_migration("ALTER TABLE markets ADD COLUMN resolved_as_draw BOOLEAN NOT NULL DEFAULT FALSE")
 
 
 class Base(DeclarativeBase):
