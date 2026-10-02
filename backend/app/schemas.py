@@ -65,7 +65,7 @@ class SystemStatus(BaseModel):
 # ---------- Markets / Outcomes ----------
 
 class MarketCreate(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
+    title: str = Field(default="", max_length=200)
     description: str = ""
     b: float = Field(gt=0, description="Initial pool value per outcome")
     scheduled_at: datetime | None = None

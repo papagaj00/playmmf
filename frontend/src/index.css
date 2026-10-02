@@ -532,6 +532,9 @@ select {
 
 .market-card__title {
     margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-family: var(--font-display);
     font-size: 22px;
     font-weight: 600;

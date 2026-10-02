@@ -277,8 +277,11 @@ def create_market(
         if len(teams) != len(team_ids) or any(team is None for team in teams):
             raise KeyError("team not found")
         outcome_names = [team.name for team in teams]
+        title = " vs ".join(outcome_names)
     else:
         teams = [None] * len(outcome_names)
+        if not title.strip():
+            raise InvalidTrade("Zadej název zápasu nebo vyber týmy.")
     market = models.Market(
         title=title,
         description=description,

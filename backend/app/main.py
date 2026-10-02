@@ -199,15 +199,18 @@ def unban_user(payload: schemas.BanUserRequest, db: Session = Depends(get_db)):
 
 @app.post("/markets", response_model=schemas.MarketOut, dependencies=[Depends(require_admin)])
 def create_market(payload: schemas.MarketCreate, db: Session = Depends(get_db)):
-    market = crud.create_market(
-        db,
-        payload.title,
-        payload.description,
-        payload.b,
-        payload.outcome_names,
-        payload.scheduled_at,
-        payload.team_ids,
-    )
+    try:
+        market = crud.create_market(
+            db,
+            payload.title,
+            payload.description,
+            payload.b,
+            payload.outcome_names,
+            payload.scheduled_at,
+            payload.team_ids,
+        )
+    except (crud.InvalidTrade, KeyError) as error:
+        raise HTTPException(status_code=400, detail=str(error))
     return _market_to_out(market)
 
 

@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 
 export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, maintenance, onMaintenanceChange }) {
-  const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [b, setB] = useState(5000);
@@ -120,8 +119,8 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
     e.preventDefault();
     const selectedTeamIds = teamIds.map((id) => Number(id)).filter(Boolean);
     const names = selectedTeamIds.map((id) => teams.find((team) => team.id === id)?.name).filter(Boolean);
-    if (!title.trim() || !scheduledAt || selectedTeamIds.length < 2 || new Set(selectedTeamIds).size !== selectedTeamIds.length) {
-      setMessage({ type: "error", text: "Zadej název, datum a čas zápasu a alespoň 2 různé týmy." });
+    if (!scheduledAt || selectedTeamIds.length < 2 || new Set(selectedTeamIds).size !== selectedTeamIds.length) {
+      setMessage({ type: "error", text: "Zadej datum a čas zápasu a vyber alespoň 2 různé týmy." });
       return;
     }
     setBusy(true);
@@ -129,7 +128,6 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
     try {
       await api.createMarket(
         {
-          title: title.trim(),
           description: description.trim(),
           b: Number(b),
           outcome_names: names,
@@ -138,7 +136,6 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
         },
       );
       setMessage({ type: "success", text: "Zápas byl vytvořen." });
-      setTitle("");
       setDescription("");
       setScheduledAt("");
       setTeamIds(["", ""]);
@@ -164,9 +161,6 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
         </section>
 
         <form className="admin-form" onSubmit={handleSubmit}>
-          <label>Název zápasu</label>
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Semifinále: Lvi vs. Tygři" />
-
           <label>Popis (nepovinné)</label>
           <input
             value={description}

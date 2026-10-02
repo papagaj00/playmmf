@@ -147,6 +147,7 @@ def test_market_can_be_created_from_team_ids():
         headers=ADMIN_HEADERS,
     )
     assert response.status_code == 200
+    assert response.json()["title"] == "Gladiators 4B (A) vs Gladiators 4B (B)"
     assert [outcome["name"] for outcome in response.json()["outcomes"]] == TEAM_NAMES[:2]
 
 
