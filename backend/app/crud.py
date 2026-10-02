@@ -1,7 +1,7 @@
 import hashlib
 import math
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
@@ -314,7 +314,33 @@ def create_market(
     return market
 
 
+def close_due_markets(db: Session, now: datetime | None = None) -> int:
+    """Close open markets one minute before their scheduled start time."""
+    current_time = now or datetime.now(timezone.utc)
+    cutoff = current_time + timedelta(minutes=1)
+    due_markets = (
+        db.query(models.Market)
+        .filter(
+            models.Market.status == models.MarketStatus.OPEN,
+            models.Market.scheduled_at.is_not(None),
+        )
+        .all()
+    )
+    closed_count = 0
+    for market in due_markets:
+        scheduled_at = market.scheduled_at
+        if scheduled_at.tzinfo is None:
+            scheduled_at = scheduled_at.replace(tzinfo=timezone.utc)
+        if scheduled_at <= cutoff:
+            market.status = models.MarketStatus.CLOSED
+            closed_count += 1
+    if closed_count:
+        db.commit()
+    return closed_count
+
+
 def get_market(db: Session, market_id: int) -> models.Market | None:
+    close_due_markets(db)
     return db.get(models.Market, market_id)
 
 
@@ -342,6 +368,7 @@ def delete_market(db: Session, market: models.Market) -> None:
 
 
 def list_markets(db: Session) -> list[models.Market]:
+    close_due_markets(db)
     return db.query(models.Market).order_by(models.Market.created_at.desc()).all()
 
 
@@ -428,6 +455,8 @@ def _open_position_for_market(
 def quote_wager(
     db: Session, user: models.User, market: models.Market, outcome_id: int, amount: float
 ) -> dict:
+    close_due_markets(db)
+    db.refresh(market)
     if market.status != models.MarketStatus.OPEN:
         raise MarketNotOpen(f"Zápas {market.id} není otevřený pro sázení.")
     if not math.isfinite(amount) or amount < MIN_WAGER_AMOUNT:

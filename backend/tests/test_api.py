@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta, timezone
 
 os.environ["ADMIN_EMAIL"] = "admin@gbn.cz"
 
@@ -194,6 +195,35 @@ def test_market_schedule_is_persisted():
     assert client.get(f"/markets/{market_id}").json()["scheduled_at"].startswith(
         "2026-10-05T18:30:00"
     )
+
+
+def test_scheduled_market_closes_one_minute_before_start():
+    scheduled_at = datetime.now(timezone.utc) + timedelta(seconds=30)
+    response = client.post(
+        "/markets",
+        json={
+            "title": "Auto close market",
+            "b": 5000,
+            "scheduled_at": scheduled_at.isoformat(),
+            "outcome_names": ["A", "B"],
+        },
+        headers=ADMIN_HEADERS,
+    )
+    assert response.status_code == 200
+    market_id = response.json()["id"]
+
+    listed_market = next(
+        market for market in client.get("/markets").json() if market["id"] == market_id
+    )
+    assert listed_market["status"] == "closed"
+
+    register("auto-close-player")
+    wager = client.post(
+        f"/markets/{market_id}/wager",
+        json={"outcome_id": listed_market["outcomes"][0]["id"], "amount": 100},
+    )
+    assert wager.status_code == 400
+    assert "není otevřený" in wager.json()["detail"]
 
 
 def test_full_trading_flow():
