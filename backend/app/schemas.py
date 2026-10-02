@@ -62,6 +62,25 @@ class SystemStatus(BaseModel):
     maintenance: bool
 
 
+class InfoMessageCreate(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+
+    @field_validator("text")
+    @classmethod
+    def normalize_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Zpráva nesmí být prázdná.")
+        return value
+
+
+class InfoMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    text: str
+    created_at: datetime
+
+
 # ---------- Markets / Outcomes ----------
 
 class MarketCreate(BaseModel):

@@ -54,6 +54,9 @@ export const api = {
   },
   me: () => request("/auth/me"),
   systemStatus: () => request("/system/status"),
+  getInfoMessages: () => request("/info/messages"),
+  createInfoMessage: (text) =>
+    request("/admin/info/messages", { method: "POST", body: { text } }),
   getUser: (username) => request(`/users/${encodeURIComponent(username)}`),
   getPositions: (username) => request(`/users/${encodeURIComponent(username)}/positions`),
   getTransactions: (username) => request(`/users/${encodeURIComponent(username)}/transactions`),

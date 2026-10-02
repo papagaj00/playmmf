@@ -143,6 +143,16 @@ def system_status(db: Session = Depends(get_db)):
     return {"maintenance": crud.is_maintenance(db)}
 
 
+@app.get("/info/messages", response_model=list[schemas.InfoMessageOut])
+def info_messages(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return crud.list_info_messages(db)
+
+
+@app.post("/admin/info/messages", response_model=schemas.InfoMessageOut, dependencies=[Depends(require_admin)])
+def create_info_message(payload: schemas.InfoMessageCreate, db: Session = Depends(get_db)):
+    return crud.create_info_message(db, payload.text)
+
+
 @app.post("/admin/maintenance", response_model=schemas.SystemStatus, dependencies=[Depends(require_admin)])
 def set_maintenance(payload: schemas.SystemStatus, db: Session = Depends(get_db)):
     return {"maintenance": crud.set_maintenance(db, payload.maintenance)}

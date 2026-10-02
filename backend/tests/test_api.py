@@ -134,6 +134,31 @@ def test_team_catalog_preserves_requested_order_and_names():
     assert [team["name"] for team in response.json()] == TEAM_NAMES
 
 
+def test_info_messages_are_visible_to_players_and_writable_only_by_admin():
+    unauthorized = client.post("/admin/info/messages", json={"text": "Admin update"})
+    assert unauthorized.status_code == 401
+
+    register("info-player")
+    forbidden = client.post(
+        "/admin/info/messages",
+        json={"text": "Player update"},
+    )
+    assert forbidden.status_code == 403
+
+    created = client.post(
+        "/admin/info/messages",
+        json={"text": "  Admin update  "},
+        headers=ADMIN_HEADERS,
+    )
+    assert created.status_code == 200
+    assert created.json()["text"] == "Admin update"
+    assert "created_at" in created.json()
+
+    messages = client.get("/info/messages")
+    assert messages.status_code == 200
+    assert messages.json()[0]["text"] == "Admin update"
+
+
 def test_market_can_be_created_from_team_ids():
     teams = client.get("/teams", headers=ADMIN_HEADERS).json()
     response = client.post(

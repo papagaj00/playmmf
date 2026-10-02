@@ -113,7 +113,7 @@ export default function App() {
 
   return (
     <div className="app">
-      <TopBar username={username} balance={user ? user.balance : 0} onLogout={handleLogout} />
+      <TopBar username={username} balance={user ? user.balance : 0} onLogout={handleLogout} isAdmin={isAdmin} />
       <div className="main">
         {error && (
           <div className="trade-message error" style={{ marginBottom: 20 }}>

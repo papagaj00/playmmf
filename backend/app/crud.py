@@ -74,6 +74,22 @@ def set_maintenance(db: Session, enabled: bool) -> bool:
     return enabled
 
 
+def list_info_messages(db: Session) -> list[models.InfoMessage]:
+    return (
+        db.query(models.InfoMessage)
+        .order_by(models.InfoMessage.created_at.desc(), models.InfoMessage.id.desc())
+        .all()
+    )
+
+
+def create_info_message(db: Session, text: str) -> models.InfoMessage:
+    message = models.InfoMessage(text=text)
+    db.add(message)
+    db.commit()
+    db.refresh(message)
+    return message
+
+
 def _validate_trade(shares: float, amount: float) -> None:
     if abs(shares) < MIN_TRADE_SHARES:
         raise InvalidTrade(f"Sázka musí mít alespoň {MIN_TRADE_SHARES:g} jednotku.")
@@ -166,6 +182,7 @@ def create_user(db: Session, username: str) -> models.User:
 def factory_reset(db: Session) -> None:
     """Delete every user, market, position, and transaction from the app."""
     db.query(models.Session).delete(synchronize_session=False)
+    db.query(models.InfoMessage).delete(synchronize_session=False)
     db.query(models.Transaction).delete(synchronize_session=False)
     db.query(models.Position).delete(synchronize_session=False)
     # Market.resolved_outcome_id and Outcome.market_id form a circular

@@ -192,6 +192,67 @@ select {
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
 }
 
+.info-panel {
+    width: min(360px, calc(100vw - 32px));
+    padding-right: 16px;
+}
+
+.info-message-list {
+    display: grid;
+    gap: 10px;
+    max-height: 260px;
+    margin-top: 12px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.info-message {
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+}
+
+.info-message time {
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 11px;
+}
+
+.info-message p {
+    margin-top: 5px;
+    white-space: pre-wrap;
+}
+
+.info-message-form {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.info-message-form textarea {
+    width: 100%;
+    min-height: 70px;
+    padding: 9px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font: inherit;
+    resize: vertical;
+}
+
+.info-message-form button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.info-message-error {
+    color: var(--danger);
+}
+
 .help-panel strong {
     display: block;
     margin-bottom: 6px;

@@ -39,6 +39,14 @@ class AppSetting(Base):
     value: Mapped[str] = mapped_column(String(255), default="")
 
 
+class InfoMessage(Base):
+    __tablename__ = "info_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text: Mapped[str] = mapped_column(String(2000))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class Team(Base):
     __tablename__ = "teams"
 
