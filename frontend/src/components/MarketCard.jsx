@@ -10,6 +10,18 @@ const STATUS_LABELS = {
   resolved: "vyhodnocený",
 };
 
+const TEAM_LOGOS = {
+  "FC Gooners 4A": "/team-logos/4A.jpeg",
+  "FC Bumass 7A8": "/team-logos/7A8.jpeg",
+  "FC Alpacas 2A": "/team-logos/2A.jpeg",
+  "FC Tortas 2B": "/team-logos/2B.jpeg",
+  "6B8": "/team-logos/6B8.jpeg",
+  "AC Bez Práce 6A8": "/team-logos/6A8.png",
+  "FC Bohové 1B": "/team-logos/1B.png",
+  "FC Fibula 5A8": "/team-logos/5A8.jpeg",
+  "FC Six Seven 5B8": "/team-logos/5B8.jpeg",
+};
+
 function formatMatchDate(value) {
   if (!value) return null;
   return new Intl.DateTimeFormat("cs-CZ", {
@@ -154,14 +166,16 @@ export default function MarketCard({ market, username, balance, positions, onCha
           {market.scheduled_at && (
             <p className="market-card__schedule">{formatMatchDate(market.scheduled_at)}</p>
           )}
-          {market.status === "resolved" && market.result && (
-            <p className="market-card__result">Výsledek {market.result}</p>
-          )}
           {market.description && <p className="market-card__desc">{market.description}</p>}
         </div>
-        <span className={`status-badge ${market.status}`}>
-          {market.resolved_as_draw ? "remíza" : STATUS_LABELS[market.status]}
-        </span>
+        <div className="market-card__status">
+          <span className={`status-badge ${market.status}`}>
+            {market.resolved_as_draw ? "remíza" : STATUS_LABELS[market.status]}
+          </span>
+          {market.status === "resolved" && market.result && (
+            <span className="market-card__result">{market.result}</span>
+          )}
+        </div>
       </div>
 
       <div className="tug-bar">
@@ -185,10 +199,10 @@ export default function MarketCard({ market, username, balance, positions, onCha
       </div>
 
       <div className="outcome-bets">
-        {orderedOutcomes.map((outcome) => (
+        {orderedOutcomes.map((outcome, index) => (
           <button
             key={outcome.id}
-            className={`outcome-bet ${selectedOutcomeId === outcome.id ? "selected" : ""} ${market.resolved_outcome_id === outcome.id ? "winner" : ""}`}
+            className={`outcome-bet outcome-bet--${index === 0 ? "left" : "right"} ${selectedOutcomeId === outcome.id ? "selected" : ""} ${market.resolved_outcome_id === outcome.id ? "winner" : ""}`}
             disabled={!tradable}
             type="button"
             onClick={() => {
@@ -203,8 +217,13 @@ export default function MarketCard({ market, username, balance, positions, onCha
               setMessage(null);
             }}
           >
-            <span className="outcome-bet__name">{outcome.name}</span>
-            <span className="outcome-bet__odds">{(1 / outcome.price).toFixed(2)}</span>
+            <span className="outcome-bet__content">
+              <span className="outcome-bet__name">{outcome.name}</span>
+              <span className="outcome-bet__odds">{(1 / outcome.price).toFixed(2)}</span>
+            </span>
+            {TEAM_LOGOS[outcome.name] && (
+              <img className="outcome-bet__logo" src={TEAM_LOGOS[outcome.name]} alt="" aria-hidden="true" />
+            )}
           </button>
         ))}
       </div>

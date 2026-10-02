@@ -4,11 +4,11 @@ import { api } from "../api";
 export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, maintenance, onMaintenanceChange }) {
   const [description, setDescription] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
-  const [b, setB] = useState(5000);
+  const [b, setB] = useState(10000);
   const [teamIds, setTeamIds] = useState(["", ""]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
-  const [points, setPoints] = useState(5);
+  const [points, setPoints] = useState(0);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState("");
