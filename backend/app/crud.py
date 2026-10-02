@@ -12,6 +12,12 @@ MIN_TRADE_SHARES = 1.0
 MIN_TRADE_AMOUNT = 0.01
 MIN_WAGER_AMOUNT = 100.0
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "prokop_jan@gymbn.cz").strip().casefold()
+TEAM_NAMES = [
+    "Gladiators 4B (A)", "Gladiators 4B (B)", "8A8", "FC Gooners 4A",
+    "FC Bumass 7A8", "3A", "FC Alpacas 2A", "FC Tortas 2B", "6B8",
+    "AC Bez Práce 6A8", "FC Bohové 1B", "FC Bang Bros 1B",
+    "FC Fibula 5A8", "FC Six Seven 5B8",
+]
 
 
 class InsufficientFunds(Exception):
@@ -244,7 +250,15 @@ def get_leaderboard(db: Session) -> list[dict]:
 
 
 def list_teams(db: Session) -> list[models.Team]:
-    return db.query(models.Team).order_by(models.Team.sort_order.asc()).all()
+    teams = db.query(models.Team).order_by(models.Team.sort_order.asc()).all()
+    if not teams:
+        db.add_all(
+            models.Team(name=name, sort_order=index)
+            for index, name in enumerate(TEAM_NAMES, start=1)
+        )
+        db.commit()
+        teams = db.query(models.Team).order_by(models.Team.sort_order.asc()).all()
+    return teams
 
 
 # ---------- Markets ----------

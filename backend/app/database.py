@@ -5,12 +5,6 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./tournament.db")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "prokop_jan@gymbn.cz").strip().casefold()
-TEAM_NAMES = [
-    "Gladiators 4B (A)", "Gladiators 4B (B)", "8A8", "FC Gooners 4A",
-    "FC Bumass 7A8", "3A", "FC Alpacas 2A", "FC Tortas 2B", "6B8",
-    "AC Bez Práce 6A8", "FC Bohové 1B", "FC Bang Bros 1B",
-    "FC Fibula 5A8", "FC Six Seven 5B8",
-]
 # Neon/Render's connection string may start with "postgres://" — SQLAlchemy 2.x needs "postgresql://"
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -67,12 +61,6 @@ def ensure_pool_columns() -> None:
         market_columns = {column["name"] for column in inspect(engine).get_columns("markets")}
         if "resolved_as_draw" not in market_columns:
             connection.execute(text("ALTER TABLE markets ADD COLUMN resolved_as_draw BOOLEAN NOT NULL DEFAULT FALSE"))
-        for order, name in enumerate(TEAM_NAMES, start=1):
-            connection.execute(
-                text("INSERT INTO teams (name, sort_order) VALUES (:name, :sort_order) "
-                     "ON CONFLICT (name) DO NOTHING"),
-                {"name": name, "sort_order": order},
-            )
         # Existing outcome quantities and legacy positions are preserved. The
         # application handles zero/null migration fields with legacy fallbacks.
 
