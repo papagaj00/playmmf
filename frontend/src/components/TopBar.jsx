@@ -36,8 +36,8 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
   return (
     <div className="topbar">
       <div className="topbar__brand">
-        <img src="/playmmf-logo.svg" alt="playmmf" />
-        <span>playmmf</span>
+        <img src="/playmmf-logo.svg" alt="PlayMMF" />
+        <span>PlayMMF</span>
       </div>
       <div className="topbar__right">
         <button
