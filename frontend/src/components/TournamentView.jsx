@@ -37,8 +37,8 @@ function getGroupResults(markets, teamNames) {
       if (!first || !second || first.team_id === second.team_id || !score) return;
 
       const [firstScore, secondScore] = score;
-      saveResult(first.name, second.name, `${firstScore}:${secondScore}`);
-      saveResult(second.name, first.name, `${secondScore}:${firstScore}`);
+      saveResult(first.name, second.name, `${secondScore}:${firstScore}`);
+      saveResult(second.name, first.name, `${firstScore}:${secondScore}`);
       if (firstScore === secondScore) {
         teams[first.name].points += 1;
         teams[second.name].points += 1;
