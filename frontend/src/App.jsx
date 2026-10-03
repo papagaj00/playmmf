@@ -7,6 +7,7 @@ import MarketsView from "./components/MarketsView";
 import PortfolioView from "./components/PortfolioView";
 import AdminView from "./components/AdminView";
 import BottomNav from "./components/BottomNav";
+import TournamentView from "./components/TournamentView";
 
 export default function App() {
   const [username, setUsername] = useState("");
@@ -143,6 +144,7 @@ export default function App() {
           <PortfolioView user={user} positions={positions} transactions={transactions} />
         )}
         {!maintenance && tab === "leaderboard" && <LeaderboardView entries={leaderboard} username={username} loading={initialDataLoading} />}
+        {!maintenance && tab === "tournament" && <TournamentView markets={markets} loading={initialDataLoading} />}
         {tab === "admin" && (
           <AdminView
             isAdmin={adminVerified}

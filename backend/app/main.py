@@ -41,6 +41,7 @@ def _market_to_out(market: models.Market) -> schemas.MarketOut:
         title=market.title,
         description=market.description,
         b=market.b,
+        stage=market.stage,
         scheduled_at=market.scheduled_at,
         status=market.status,
         resolved_outcome_id=market.resolved_outcome_id,
@@ -48,7 +49,7 @@ def _market_to_out(market: models.Market) -> schemas.MarketOut:
         result=market.result,
         outcomes=[
             schemas.OutcomeOut(
-                id=o.id, name=o.name, quantity=o.quantity, price=price_map[o.id]
+                id=o.id, team_id=o.team_id, name=o.name, quantity=o.quantity, price=price_map[o.id]
             )
             for o in market.outcomes
         ],
@@ -218,6 +219,7 @@ def create_market(payload: schemas.MarketCreate, db: Session = Depends(get_db)):
             payload.outcome_names,
             payload.scheduled_at,
             payload.team_ids,
+            payload.stage,
         )
     except (crud.InvalidTrade, KeyError) as error:
         raise HTTPException(status_code=400, detail=str(error))

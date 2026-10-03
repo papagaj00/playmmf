@@ -253,6 +253,208 @@ select {
     color: var(--danger);
 }
 
+.tournament-view {
+    display: grid;
+    gap: 16px;
+}
+
+.tournament-title {
+    margin-bottom: 0;
+}
+
+.tournament-groups {
+    display: grid;
+    gap: 10px;
+}
+
+.tournament-section {
+    overflow: hidden;
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.tournament-section__toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 54px;
+    padding: 10px 15px;
+    color: var(--text);
+    background: transparent;
+    border: 0;
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 700;
+    text-align: left;
+}
+
+.tournament-section__arrow {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 20px;
+}
+
+.standings-table-wrap {
+    overflow-x: auto;
+    border-top: 1px solid var(--border);
+}
+
+.results-matrix {
+    width: 100%;
+    min-width: 620px;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.results-matrix th,
+.results-matrix td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+}
+
+.results-matrix th {
+    color: var(--text-dim);
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.playoff-team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.results-matrix__points {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.tournament-team-logo {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    object-fit: contain;
+    padding: 2px;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+}
+
+.tournament-team-mark {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tournament-team-variant {
+    position: absolute;
+    right: -5px;
+    bottom: -4px;
+    display: grid;
+    width: 16px;
+    height: 16px;
+    place-items: center;
+    color: #161616;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    line-height: 1;
+}
+
+.tournament-team-logo--fallback {
+    display: grid;
+    place-items: center;
+    color: var(--text);
+    background: var(--accent-muted);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.playoff-bracket {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(170px, 1fr));
+    gap: 12px;
+    overflow-x: auto;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+}
+
+.playoff-round {
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    min-width: 170px;
+}
+
+.playoff-round h3 {
+    margin: 0;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+.playoff-match {
+    display: grid;
+    gap: 7px;
+    padding: 11px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+}
+
+.playoff-match--open {
+    border-left-color: var(--text-dim);
+}
+
+.playoff-match__meta {
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    text-transform: uppercase;
+}
+
+.playoff-team {
+    min-width: 0;
+    font-size: 12px;
+}
+
+.playoff-team span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.playoff-team strong {
+    margin-left: auto;
+    font-family: var(--font-mono);
+}
+
+.playoff-empty {
+    padding: 12px 10px;
+    color: var(--text-dim);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+@media (max-width: 700px) {
+    .playoff-bracket {
+        grid-template-columns: repeat(4, minmax(155px, 1fr));
+    }
+}
+
 .help-panel strong {
     display: block;
     margin-bottom: 6px;
@@ -580,7 +782,7 @@ select {
 }
 
 .market-card.status-resolved {
-    opacity: 0.6;
+    opacity: 1;
 }
 
 .market-card__head {
@@ -1626,4 +1828,8 @@ select {
     .outcome-bet__name {
         font-size: 13px;
     }
+}
+
+.results-matrix__diagonal {
+    background: var(--surface);
 }

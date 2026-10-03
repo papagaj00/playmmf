@@ -1,9 +1,10 @@
-import { Goal, Shield, Trophy, Wallet } from "lucide-react";
+import { Goal, Medal, Shield, Trophy, Wallet } from "lucide-react";
 
 const ITEMS = [
     { id: "markets", label: "Zápasy", Icon: Goal },
     { id: "portfolio", label: "Moje sázky", Icon: Wallet },
-    { id: "leaderboard", label: "Žebříček", Icon: Trophy },
+    { id: "leaderboard", label: "Žebříček", Icon: Medal },
+    { id: "tournament", label: "Turnaj", Icon: Trophy },
     { id: "admin", label: "Správa", Icon: Shield },
 ];
 

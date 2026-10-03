@@ -58,6 +58,8 @@ def ensure_pool_columns() -> None:
         _execute_migration("ALTER TABLE outcomes ADD COLUMN team_id INTEGER")
     if "result" not in market_columns:
         _execute_migration("ALTER TABLE markets ADD COLUMN result VARCHAR(32)")
+    if "stage" not in market_columns:
+        _execute_migration("ALTER TABLE markets ADD COLUMN stage VARCHAR(32) NOT NULL DEFAULT 'group'")
     if "scheduled_at" not in market_columns:
         _execute_migration(
             "ALTER TABLE markets ADD COLUMN scheduled_at TIMESTAMP WITH TIME ZONE"

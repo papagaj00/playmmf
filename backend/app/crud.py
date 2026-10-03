@@ -288,6 +288,7 @@ def create_market(
     outcome_names: list[str],
     scheduled_at: datetime | None = None,
     team_ids: list[int] | None = None,
+    stage: str = "group",
 ) -> models.Market:
     if team_ids:
         teams = [db.get(models.Team, team_id) for team_id in team_ids]
@@ -303,6 +304,7 @@ def create_market(
         title=title,
         description=description,
         b=b,
+        stage=stage,
         scheduled_at=scheduled_at,
     )
     db.add(market)

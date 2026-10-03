@@ -87,6 +87,7 @@ class MarketCreate(BaseModel):
     title: str = Field(default="", max_length=200)
     description: str = ""
     b: float = Field(gt=0, description="Initial pool value per outcome")
+    stage: str = Field(default="group", pattern=r"^(group|quarterfinal|semifinal|third_place|final)$")
     scheduled_at: datetime | None = None
     outcome_names: list[str] = Field(min_length=2)
     team_ids: list[int] | None = None
@@ -95,6 +96,7 @@ class MarketCreate(BaseModel):
 class OutcomeOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
+    team_id: int | None
     name: str
     quantity: float
     price: float  # computed, not a DB column
@@ -112,6 +114,7 @@ class MarketOut(BaseModel):
     title: str
     description: str
     b: float
+    stage: str
     scheduled_at: datetime | None
     status: MarketStatus
     resolved_outcome_id: int | None

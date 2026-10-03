@@ -94,6 +94,7 @@ class Market(Base):
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(String(1000), default="")
     b: Mapped[float] = mapped_column(Float)  # initial pool value L per outcome
+    stage: Mapped[str] = mapped_column(String(32), default="group")
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[MarketStatus] = mapped_column(
         Enum(MarketStatus), default=MarketStatus.OPEN

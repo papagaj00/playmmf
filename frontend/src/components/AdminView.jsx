@@ -4,6 +4,7 @@ import { api } from "../api";
 export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, maintenance, onMaintenanceChange }) {
   const [description, setDescription] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [stage, setStage] = useState("group");
   const [b, setB] = useState(10000);
   const [teamIds, setTeamIds] = useState(["", ""]);
   const [busy, setBusy] = useState(false);
@@ -130,6 +131,7 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
         {
           description: description.trim(),
           b: Number(b),
+          stage,
           outcome_names: names,
           team_ids: selectedTeamIds,
           scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
@@ -138,6 +140,7 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
       setMessage({ type: "success", text: "Zápas byl vytvořen." });
       setDescription("");
       setScheduledAt("");
+      setStage("group");
       setTeamIds(["", ""]);
       onMarketCreated();
     } catch (err) {
@@ -179,6 +182,15 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
 
           <label>Počáteční pool pro každý výsledek (b)</label>
           <input type="number" min="1" step="1" value={b} onChange={(e) => setB(e.target.value)} />
+
+          <label htmlFor="market-stage">Fáze turnaje</label>
+          <select id="market-stage" value={stage} onChange={(e) => setStage(e.target.value)}>
+            <option value="group">Skupinová fáze</option>
+            <option value="quarterfinal">Čtvrtfinále</option>
+            <option value="semifinal">Semifinále</option>
+            <option value="third_place">O 3. místo</option>
+            <option value="final">Finále</option>
+          </select>
 
           <label>Možné výsledky</label>
           {teamIds.map((teamId, i) => (
