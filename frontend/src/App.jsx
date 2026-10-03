@@ -141,7 +141,7 @@ export default function App() {
           />
         )}
         {!maintenance && tab === "portfolio" && user && (
-          <PortfolioView user={user} positions={positions} transactions={transactions} />
+          <PortfolioView user={user} positions={positions} transactions={transactions} loading={initialDataLoading} />
         )}
         {!maintenance && tab === "leaderboard" && <LeaderboardView entries={leaderboard} username={username} loading={initialDataLoading} />}
         {!maintenance && tab === "tournament" && <TournamentView markets={markets} loading={initialDataLoading} />}

@@ -1,4 +1,5 @@
 import { formatPoints } from "../format";
+import LoadingState from "./LoadingState";
 
 const STATUS_LABELS = {
   open: "otevřená",
@@ -6,7 +7,9 @@ const STATUS_LABELS = {
   resolved: "vyhodnocená",
 };
 
-export default function PortfolioView({ user, positions, transactions }) {
+export default function PortfolioView({ user, positions, transactions, loading }) {
+  if (loading) return <LoadingState label="Načítám sázky…" />;
+
   const activity = transactions.filter((transaction) => transaction.type !== "payout");
   const wageredValue = positions.reduce((total, position) => total + position.stake_amount, 0);
 
