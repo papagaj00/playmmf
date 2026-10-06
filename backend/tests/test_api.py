@@ -135,7 +135,106 @@ def test_team_catalog_preserves_requested_order_and_names():
     assert [team["name"] for team in response.json()] == TEAM_NAMES
 
 
+def test_team_roster_admin_crud_and_goal_consistency():
+    teams = client.get("/teams", headers=ADMIN_HEADERS).json()
+    team_a, team_b = teams[0], teams[1]
+
+    created = client.post(
+        f"/admin/teams/{team_a['id']}/players",
+        json={"name": "Test střelec", "goals": 4},
+        headers=ADMIN_HEADERS,
+    )
+    assert created.status_code == 200
+    player = created.json()
+
+    player_market = client.post(
+        "/markets",
+        json={
+            "title": "Roster test match",
+            "b": 5000,
+            "team_ids": [team_a["id"], team_b["id"]],
+            "outcome_names": [team_a["name"], team_b["name"]],
+        },
+        headers=ADMIN_HEADERS,
+    ).json()
+    resolved = client.post(
+        f"/markets/{player_market['id']}/resolve",
+        json={"result": "5:2"},
+        headers=ADMIN_HEADERS,
+    )
+    assert resolved.status_code == 200
+
+    roster = next(
+        item for item in client.get("/teams/rosters", headers=ADMIN_HEADERS).json()
+        if item["id"] == team_a["id"]
+    )
+    assert roster["team_goals"] == 5
+    assert roster["roster_goals"] == 4
+    assert roster["goals_status"] == "mismatch"
+
+    updated = client.patch(
+        f"/admin/teams/{team_a['id']}/players/{player['id']}",
+        json={"name": "Test střelec", "goals": 5},
+        headers=ADMIN_HEADERS,
+    )
+    assert updated.status_code == 200
+    consistent = next(
+        item for item in client.get("/teams/rosters", headers=ADMIN_HEADERS).json()
+        if item["id"] == team_a["id"]
+    )
+    assert consistent["goals_status"] == "consistent"
+
+    deleted = client.delete(
+        f"/admin/teams/{team_a['id']}/players/{player['id']}",
+        headers=ADMIN_HEADERS,
+    )
+    assert deleted.status_code == 204
+
+
+def test_admin_can_use_read_and_management_routes_during_maintenance():
+    enabled = client.post(
+        "/admin/maintenance",
+        json={"maintenance": True},
+        headers=ADMIN_HEADERS,
+    )
+    assert enabled.status_code == 200
+
+    assert client.get("/markets", headers=ADMIN_HEADERS).status_code == 200
+    assert client.get("/teams/rosters", headers=ADMIN_HEADERS).status_code == 200
+    assert client.post(
+        "/markets",
+        json={"title": "Maintenance admin match", "b": 10, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).status_code == 200
+
+    register("maintenance-player")
+    assert client.get("/markets").status_code == 503
+
+    disabled = client.post(
+        "/admin/maintenance",
+        json={"maintenance": False},
+        headers=ADMIN_HEADERS,
+    )
+    assert disabled.status_code == 200
+    client.post("/auth/logout")
+
+
+def test_balance_adjustments_are_stored_as_whole_points():
+    registration = register("whole-points")
+    assert registration.status_code == 200
+    user_id = registration.json()["user"]["id"]
+    adjusted = client.post(
+        "/admin/balance-adjustment",
+        json={"points": 0.4, "user_id": user_id},
+        headers=ADMIN_HEADERS,
+    )
+    assert adjusted.status_code == 200
+    assert client.get("/users/whole-points").json()["balance"] == 10000
+    client.post("/auth/logout")
+
+
 def test_info_messages_are_visible_to_players_and_writable_only_by_admin():
+    client.post("/auth/logout")
     unauthorized = client.post("/admin/info/messages", json={"text": "Admin update"})
     assert unauthorized.status_code == 401
 
@@ -158,6 +257,7 @@ def test_info_messages_are_visible_to_players_and_writable_only_by_admin():
     messages = client.get("/info/messages")
     assert messages.status_code == 200
     assert messages.json()[0]["text"] == "Admin update"
+    client.post("/auth/logout")
 
 
 def test_market_can_be_created_from_team_ids():

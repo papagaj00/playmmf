@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChevronDown, LogOut, MessageSquareText, Send, X } from "lucide-react";
 import { api } from "../api";
 import { formatPoints } from "../format";
@@ -10,12 +10,35 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
   const [messageText, setMessageText] = useState("");
   const [messageError, setMessageError] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
+  const readStorageKey = `gbn-info-read:${username}`;
+  const [lastReadId, setLastReadId] = useState(() => Number(localStorage.getItem(readStorageKey) || 0));
+
+  const markMessagesRead = useCallback((nextMessages) => {
+    const newestId = nextMessages[0]?.id || 0;
+    if (newestId <= lastReadId) return;
+    localStorage.setItem(readStorageKey, String(newestId));
+    setLastReadId(newestId);
+  }, [lastReadId, readStorageKey]);
 
   useEffect(() => {
-    if (infoOpen) {
-      api.getInfoMessages().then(setMessages).catch(() => setMessageError("Zprávy se nepodařilo načíst."));
+    let active = true;
+    async function loadMessages() {
+      try {
+        const nextMessages = await api.getInfoMessages();
+        if (!active) return;
+        setMessages(nextMessages);
+        if (infoOpen) markMessagesRead(nextMessages);
+      } catch {
+        if (active) setMessageError("Zprávy se nepodařilo načíst.");
+      }
     }
-  }, [infoOpen]);
+    loadMessages();
+    const interval = setInterval(loadMessages, 15000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [infoOpen, markMessagesRead, username]);
 
   async function handleSendMessage(event) {
     event.preventDefault();
@@ -25,6 +48,7 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
     try {
       const created = await api.createInfoMessage(messageText);
       setMessages((current) => [created, ...current]);
+      markMessagesRead([created]);
       setMessageText("");
     } catch (error) {
       setMessageError(error.message || "Zprávu se nepodařilo odeslat.");
@@ -48,6 +72,7 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
           onClick={() => setInfoOpen((open) => !open)}
         >
           <MessageSquareText size={18} />
+          {messages[0]?.id > lastReadId && <span className="info-unread-dot" aria-label="Nové informační zprávy" />}
         </button>
         <button className="balance-chip" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen}>
           <b>{formatPoints(balance)}</b> bodů

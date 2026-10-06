@@ -72,6 +72,31 @@ def require_admin(user: models.User = Depends(get_current_user)) -> models.User:
     return user
 
 
+def get_optional_current_user(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+    gbn_session: str | None = Cookie(default=None),
+) -> models.User | None:
+    token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1]
+    if not token and not gbn_session:
+        return None
+    try:
+        return auth.current_user(db, token=token, gbn_session=gbn_session)
+    except HTTPException:
+        return None
+
+
+def require_app_open_or_admin(
+    db: Session = Depends(get_db), user: models.User | None = Depends(get_optional_current_user)
+) -> None:
+    if crud.is_maintenance(db) and not user:
+        raise HTTPException(status_code=503, detail="The app is on a maintenance break.")
+    if crud.is_maintenance(db) and user and not user.is_admin:
+        raise HTTPException(status_code=503, detail="The app is on a maintenance break.")
+
+
 # ---------- Users ----------
 
 @app.post("/auth/register", response_model=schemas.AuthResponse)
@@ -108,28 +133,28 @@ def me(user: models.User = Depends(get_current_user)):
     return user
 
 
-@app.get("/users/{username}", response_model=schemas.UserOut, dependencies=[Depends(require_app_open)])
+@app.get("/users/{username}", response_model=schemas.UserOut, dependencies=[Depends(require_app_open_or_admin)])
 def get_user(username: str, user: models.User = Depends(get_current_user)):
     if username != user.username:
         raise HTTPException(status_code=403, detail="K tomuto účtu nemáš přístup.")
     return user
 
 
-@app.get("/users/{username}/positions", response_model=list[schemas.PositionOut], dependencies=[Depends(require_app_open)])
+@app.get("/users/{username}/positions", response_model=list[schemas.PositionOut], dependencies=[Depends(require_app_open_or_admin)])
 def get_user_positions(username: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     if username != user.username:
         raise HTTPException(status_code=403, detail="K tomuto účtu nemáš přístup.")
     return crud.get_positions(db, user)
 
 
-@app.get("/users/{username}/transactions", response_model=list[schemas.TransactionOut], dependencies=[Depends(require_app_open)])
+@app.get("/users/{username}/transactions", response_model=list[schemas.TransactionOut], dependencies=[Depends(require_app_open_or_admin)])
 def get_user_transactions(username: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
     if username != user.username:
         raise HTTPException(status_code=403, detail="K tomuto účtu nemáš přístup.")
     return crud.get_transaction_history(db, user)
 
 
-@app.get("/leaderboard", response_model=list[schemas.LeaderboardEntry], dependencies=[Depends(require_app_open)])
+@app.get("/leaderboard", response_model=list[schemas.LeaderboardEntry], dependencies=[Depends(require_app_open_or_admin)])
 def leaderboard(db: Session = Depends(get_db)):
     return crud.get_leaderboard(db)
 
@@ -167,6 +192,39 @@ def admin_users(db: Session = Depends(get_db)):
 @app.get("/teams", response_model=list[schemas.TeamOut], dependencies=[Depends(require_admin)])
 def teams(db: Session = Depends(get_db)):
     return crud.list_teams(db)
+
+
+@app.get("/teams/rosters", response_model=list[schemas.TeamRosterOut], dependencies=[Depends(require_app_open_or_admin)])
+def team_rosters(db: Session = Depends(get_db)):
+    return crud.list_team_rosters(db)
+
+
+@app.post("/admin/teams/{team_id}/players", response_model=schemas.TeamPlayerOut, dependencies=[Depends(require_admin)])
+def add_team_player(team_id: int, payload: schemas.TeamPlayerCreate, db: Session = Depends(get_db)):
+    try:
+        return crud.add_team_player(db, team_id, payload.name, payload.goals)
+    except crud.TeamNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except crud.DuplicateTeamPlayer as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.patch("/admin/teams/{team_id}/players/{player_id}", response_model=schemas.TeamPlayerOut, dependencies=[Depends(require_admin)])
+def update_team_player(team_id: int, player_id: int, payload: schemas.TeamPlayerUpdate, db: Session = Depends(get_db)):
+    try:
+        return crud.update_team_player(db, team_id, player_id, payload.name, payload.goals)
+    except crud.TeamPlayerNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except crud.DuplicateTeamPlayer as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.delete("/admin/teams/{team_id}/players/{player_id}", status_code=204, dependencies=[Depends(require_admin)])
+def delete_team_player(team_id: int, player_id: int, db: Session = Depends(get_db)):
+    try:
+        crud.delete_team_player(db, team_id, player_id)
+    except crud.TeamPlayerNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error))
 
 
 @app.post("/admin/factory-reset", dependencies=[Depends(require_admin)])
@@ -226,12 +284,12 @@ def create_market(payload: schemas.MarketCreate, db: Session = Depends(get_db)):
     return _market_to_out(market)
 
 
-@app.get("/markets", response_model=list[schemas.MarketOut], dependencies=[Depends(require_app_open)])
+@app.get("/markets", response_model=list[schemas.MarketOut], dependencies=[Depends(require_app_open_or_admin)])
 def list_markets(db: Session = Depends(get_db)):
     return [_market_to_out(m) for m in crud.list_markets(db)]
 
 
-@app.get("/markets/{market_id}", response_model=schemas.MarketOut, dependencies=[Depends(require_app_open)])
+@app.get("/markets/{market_id}", response_model=schemas.MarketOut, dependencies=[Depends(require_app_open_or_admin)])
 def get_market(market_id: int, db: Session = Depends(get_db)):
     market = crud.get_market(db, market_id)
     if not market:
@@ -242,7 +300,7 @@ def get_market(market_id: int, db: Session = Depends(get_db)):
 @app.post(
     "/markets/{market_id}/status",
     response_model=schemas.MarketOut,
-    dependencies=[Depends(require_admin), Depends(require_app_open)],
+    dependencies=[Depends(require_admin), Depends(require_app_open_or_admin)],
 )
 def set_market_status(market_id: int, status: models.MarketStatus, db: Session = Depends(get_db)):
     market = crud.get_market(db, market_id)
