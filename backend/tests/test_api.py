@@ -168,13 +168,13 @@ def test_team_roster_admin_crud_and_goal_consistency():
         item for item in client.get("/teams/rosters", headers=ADMIN_HEADERS).json()
         if item["id"] == team_a["id"]
     )
-    assert roster["team_goals"] == 5
+    assert roster["team_goals"] == 2
     assert roster["roster_goals"] == 4
     assert roster["goals_status"] == "mismatch"
 
     updated = client.patch(
         f"/admin/teams/{team_a['id']}/players/{player['id']}",
-        json={"name": "Test střelec", "goals": 5},
+        json={"name": "Test střelec", "goals": 2},
         headers=ADMIN_HEADERS,
     )
     assert updated.status_code == 200
