@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 
-export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, maintenance, onMaintenanceChange }) {
+export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMaintenanceChange }) {
   const [description, setDescription] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [stage, setStage] = useState("group");
@@ -21,23 +21,6 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
       api.getTeams().then(setTeams).catch(() => setTeams([]));
     }
   }, [isAdmin]);
-
-  async function handleFactoryReset() {
-    const confirmed = window.confirm(
-      "Tovární reset trvale smaže všechny uživatele, zápasy, sázky a historii. Pokračovat?"
-    );
-    if (!confirmed) return;
-
-    setBusy(true);
-    setMessage(null);
-    try {
-      await api.factoryReset();
-      onFactoryReset();
-    } catch (err) {
-      setMessage({ type: "error", text: err.message });
-      setBusy(false);
-    }
-  }
 
   async function handleMaintenanceToggle() {
     setBusy(true);
@@ -246,18 +229,6 @@ export default function AdminView({ isAdmin, onMarketCreated, onFactoryReset, ma
           </div>
         </section>
 
-        <section className="admin-form" style={{ marginTop: 28 }}>
-          <h3>Tovární reset</h3>
-          <p>Tato akce trvale smaže všechny uživatele, zápasy, sázky a historii transakcí.</p>
-          <button
-            type="button"
-            className="btn-small"
-            disabled={busy}
-            onClick={handleFactoryReset}
-          >
-            Obnovit aplikaci do výchozího stavu
-          </button>
-        </section>
       </>}
     </div>
   );

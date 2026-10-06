@@ -108,6 +108,42 @@ class TeamOut(BaseModel):
     sort_order: int
 
 
+class TeamPlayerCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    goals: int = Field(default=0, ge=0)
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Jméno hráče nesmí být prázdné.")
+        return value
+
+
+class TeamPlayerUpdate(TeamPlayerCreate):
+    pass
+
+
+class TeamPlayerOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    team_id: int
+    name: str
+    goals: int
+    sort_order: int
+
+
+class TeamRosterOut(BaseModel):
+    id: int
+    name: str
+    sort_order: int
+    players: list[TeamPlayerOut]
+    team_goals: int
+    roster_goals: int
+    goals_status: str
+
+
 class MarketOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

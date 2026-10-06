@@ -1,6 +1,7 @@
 import hashlib
 import math
 import os
+import re
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
@@ -45,6 +46,18 @@ class AuthenticationError(Exception):
 
 
 class UserNotFound(Exception):
+    pass
+
+
+class TeamNotFound(Exception):
+    pass
+
+
+class TeamPlayerNotFound(Exception):
+    pass
+
+
+class DuplicateTeamPlayer(Exception):
     pass
 
 
@@ -213,7 +226,7 @@ def adjust_balances(db: Session, points: float, user_id: int | None = None) -> i
     if points < 0 and any(user.balance + points < 0 for user in users):
         raise InvalidBalanceAdjustment("Tato změna by snížila některý účet pod nulu.")
     for user in users:
-        user.balance += points
+        user.balance = round(user.balance + points)
         db.add(
             models.Transaction(
                 user_id=user.id,
@@ -276,6 +289,91 @@ def list_teams(db: Session) -> list[models.Team]:
         db.commit()
         teams = db.query(models.Team).order_by(models.Team.sort_order.asc()).all()
     return teams
+
+
+def _team_goals_from_matches(db: Session) -> dict[int, int]:
+    team_goals: dict[int, int] = {}
+    markets = (
+        db.query(models.Market)
+        .filter(models.Market.status == models.MarketStatus.RESOLVED)
+        .all()
+    )
+    for market in markets:
+        if len(market.outcomes) != 2 or not re.fullmatch(r"\s*\d+\s*:\s*\d+\s*", market.result or ""):
+            continue
+        first, second = market.outcomes
+        if first.team_id is None or second.team_id is None or first.team_id == second.team_id:
+            continue
+        first_goals, second_goals = (int(value.strip()) for value in market.result.split(":"))
+        team_goals[first.team_id] = team_goals.get(first.team_id, 0) + first_goals
+        team_goals[second.team_id] = team_goals.get(second.team_id, 0) + second_goals
+    return team_goals
+
+
+def list_team_rosters(db: Session) -> list[dict]:
+    teams = list_teams(db)
+    team_goals = _team_goals_from_matches(db)
+    rosters = []
+    for team in teams:
+        roster_goals = sum(player.goals for player in team.roster)
+        resolved_goals = team_goals.get(team.id, 0)
+        has_resolved_matches = team.id in team_goals
+        rosters.append(
+            {
+                "id": team.id,
+                "name": team.name,
+                "sort_order": team.sort_order,
+                "players": team.roster,
+                "team_goals": resolved_goals,
+                "roster_goals": roster_goals,
+                "goals_status": (
+                    "pending" if not has_resolved_matches
+                    else "consistent" if resolved_goals == roster_goals
+                    else "mismatch"
+                ),
+            }
+        )
+    return rosters
+
+
+def add_team_player(db: Session, team_id: int, name: str, goals: int) -> models.TeamPlayer:
+    team = db.get(models.Team, team_id)
+    if team is None:
+        raise TeamNotFound("Tým nebyl nalezen.")
+    if db.query(models.TeamPlayer).filter_by(team_id=team_id, name=name).first():
+        raise DuplicateTeamPlayer("Tento hráč už je v týmu.")
+    next_order = (max((player.sort_order for player in team.roster), default=-1) + 1)
+    player = models.TeamPlayer(team_id=team_id, name=name, goals=goals, sort_order=next_order)
+    db.add(player)
+    db.commit()
+    db.refresh(player)
+    return player
+
+
+def update_team_player(db: Session, team_id: int, player_id: int, name: str, goals: int) -> models.TeamPlayer:
+    player = db.get(models.TeamPlayer, player_id)
+    if player is None or player.team_id != team_id:
+        raise TeamPlayerNotFound("Hráč nebyl nalezen v tomto týmu.")
+    duplicate = db.query(models.TeamPlayer).filter(
+        models.TeamPlayer.team_id == team_id,
+        models.TeamPlayer.name == name,
+        models.TeamPlayer.id != player_id,
+    ).first()
+    if duplicate:
+        raise DuplicateTeamPlayer("Tento hráč už je v týmu.")
+    player.name = name
+    player.goals = goals
+    db.commit()
+    db.refresh(player)
+    return player
+
+
+def delete_team_player(db: Session, team_id: int, player_id: int) -> None:
+    player = db.get(models.TeamPlayer, player_id)
+    if player is None or player.team_id != team_id:
+        raise TeamPlayerNotFound("Hráč nebyl nalezen v tomto týmu.")
+    db.delete(player)
+    db.commit()
 
 
 # ---------- Markets ----------
@@ -506,7 +604,7 @@ def execute_wager(
     )
 
     outcome.quantity += amount
-    user.balance -= amount
+    user.balance = round(user.balance - amount)
     if position is None:
         position = models.Position(user_id=user.id, outcome_id=outcome_id, shares=0.0)
         db.add(position)
@@ -563,7 +661,7 @@ def execute_trade(
 
     # Apply the trade
     outcome.quantity += shares
-    user.balance -= amount
+    user.balance = round(user.balance - amount)
 
     if position is None:
         position = models.Position(user_id=user.id, outcome_id=outcome_id, shares=0.0)
@@ -637,7 +735,7 @@ def resolve_market(
             ) if pos.outcome_id == winning_outcome_id else 0.0
         if payout != 0:
             user = db.get(models.User, pos.user_id)
-            user.balance += payout
+            user.balance = round(user.balance + payout)
             db.add(
                 models.Transaction(
                     user_id=user.id,

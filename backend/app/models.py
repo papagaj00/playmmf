@@ -53,6 +53,22 @@ class Team(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(200), unique=True)
     sort_order: Mapped[int] = mapped_column(Integer, unique=True)
+    roster: Mapped[list["TeamPlayer"]] = relationship(
+        back_populates="team", cascade="all, delete-orphan", order_by="TeamPlayer.sort_order"
+    )
+
+
+class TeamPlayer(Base):
+    __tablename__ = "team_players"
+    __table_args__ = (UniqueConstraint("team_id", "name", name="uq_team_player_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    goals: Mapped[int] = mapped_column(Integer, default=0)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    team: Mapped["Team"] = relationship(back_populates="roster")
 
 
 class User(Base):

@@ -91,7 +91,9 @@ def get_optional_current_user(
 def require_app_open_or_admin(
     db: Session = Depends(get_db), user: models.User | None = Depends(get_optional_current_user)
 ) -> None:
-    if crud.is_maintenance(db) and (user is None or not user.is_admin):
+    if crud.is_maintenance(db) and not user:
+        raise HTTPException(status_code=503, detail="The app is on a maintenance break.")
+    if crud.is_maintenance(db) and user and not user.is_admin:
         raise HTTPException(status_code=503, detail="The app is on a maintenance break.")
 
 
@@ -190,6 +192,39 @@ def admin_users(db: Session = Depends(get_db)):
 @app.get("/teams", response_model=list[schemas.TeamOut], dependencies=[Depends(require_admin)])
 def teams(db: Session = Depends(get_db)):
     return crud.list_teams(db)
+
+
+@app.get("/teams/rosters", response_model=list[schemas.TeamRosterOut], dependencies=[Depends(require_app_open_or_admin)])
+def team_rosters(db: Session = Depends(get_db)):
+    return crud.list_team_rosters(db)
+
+
+@app.post("/admin/teams/{team_id}/players", response_model=schemas.TeamPlayerOut, dependencies=[Depends(require_admin)])
+def add_team_player(team_id: int, payload: schemas.TeamPlayerCreate, db: Session = Depends(get_db)):
+    try:
+        return crud.add_team_player(db, team_id, payload.name, payload.goals)
+    except crud.TeamNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except crud.DuplicateTeamPlayer as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.patch("/admin/teams/{team_id}/players/{player_id}", response_model=schemas.TeamPlayerOut, dependencies=[Depends(require_admin)])
+def update_team_player(team_id: int, player_id: int, payload: schemas.TeamPlayerUpdate, db: Session = Depends(get_db)):
+    try:
+        return crud.update_team_player(db, team_id, player_id, payload.name, payload.goals)
+    except crud.TeamPlayerNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except crud.DuplicateTeamPlayer as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.delete("/admin/teams/{team_id}/players/{player_id}", status_code=204, dependencies=[Depends(require_admin)])
+def delete_team_player(team_id: int, player_id: int, db: Session = Depends(get_db)):
+    try:
+        crud.delete_team_player(db, team_id, player_id)
+    except crud.TeamPlayerNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error))
 
 
 @app.post("/admin/factory-reset", dependencies=[Depends(require_admin)])

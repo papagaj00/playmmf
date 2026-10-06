@@ -19,6 +19,7 @@ export default function App() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [positions, setPositions] = useState([]);
   const [transactions, setTransactions] = useState([]);
+  const [rosters, setRosters] = useState([]);
   const [error, setError] = useState(null);
   const [initialDataLoading, setInitialDataLoading] = useState(true);
   const [maintenance, setMaintenance] = useState(false);
@@ -39,23 +40,25 @@ export default function App() {
     try {
       const system = await api.systemStatus();
       setMaintenance(system.maintenance);
-      if (system.maintenance && !adminVerified) {
+      if (system.maintenance) {
         setInitialDataLoading(false);
         setError(null);
         return;
       }
-      const [u, m, lb, pos, tx] = await Promise.all([
+      const [u, m, lb, pos, tx, rosterData] = await Promise.all([
         api.getUser(username),
         api.listMarkets(),
         api.getLeaderboard(),
         api.getPositions(username),
         api.getTransactions(username),
+        api.getTeamRosters(),
       ]);
       setUser(u);
       setMarkets(m);
       setLeaderboard(lb);
       setPositions(pos);
       setTransactions(tx);
+      setRosters(rosterData);
       setError(null);
       refreshFailures.current = 0;
     } catch (err) {
@@ -66,7 +69,7 @@ export default function App() {
     } finally {
       setInitialDataLoading(refreshFailures.current > 0 && !markets.length);
     }
-  }, [adminVerified, username, markets.length]);
+  }, [username, markets.length]);
 
   useEffect(() => {
     refreshAll();
@@ -90,20 +93,13 @@ export default function App() {
     });
   }
 
-  function handleFactoryReset() {
-    setUsername("");
-    setUser(null);
-    setMarkets([]);
-    setLeaderboard([]);
-    setPositions([]);
-    setTransactions([]);
-    setAdminVerified(false);
-    setTab("markets");
-  }
-
   function handleMaintenanceChange(enabled) {
     setMaintenance(enabled);
     if (!enabled) refreshAll();
+  }
+
+  function handleRosterChange(updatedRoster) {
+    setRosters((current) => current.map((roster) => roster.id === updatedRoster.id ? updatedRoster : roster));
   }
 
   if (!username) {
@@ -145,12 +141,11 @@ export default function App() {
           <PortfolioView user={user} positions={positions} transactions={transactions} loading={initialDataLoading} />
         )}
         {canUseApp && tab === "leaderboard" && <LeaderboardView entries={leaderboard} username={username} loading={initialDataLoading} />}
-        {canUseApp && tab === "tournament" && <TournamentView markets={markets} loading={initialDataLoading} />}
+        {canUseApp && tab === "tournament" && <TournamentView markets={markets} rosters={rosters} loading={initialDataLoading} isAdmin={isAdmin} onRosterChange={handleRosterChange} />}
         {tab === "admin" && (
           <AdminView
             isAdmin={adminVerified}
             onMarketCreated={refreshAll}
-            onFactoryReset={handleFactoryReset}
             maintenance={maintenance}
             onMaintenanceChange={handleMaintenanceChange}
           />

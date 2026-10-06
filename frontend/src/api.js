@@ -68,6 +68,7 @@ export const api = {
     }),
   getAdminUsers: () => request("/admin/users"),
   getTeams: () => request("/teams"),
+  getTeamRosters: () => request("/teams/rosters"),
   getLeaderboard: () => request("/leaderboard"),
   factoryReset: () =>
     request("/admin/factory-reset", { method: "POST" }),
@@ -80,6 +81,15 @@ export const api = {
     request("/admin/users/ban", { method: "POST", body: { email } }),
   unbanUser: (email) =>
     request("/admin/users/unban", { method: "POST", body: { email } }),
+  addTeamPlayer: (teamId, name, goals) =>
+    request(`/admin/teams/${teamId}/players`, { method: "POST", body: { name, goals } }),
+  updateTeamPlayer: (teamId, playerId, name, goals) =>
+    request(`/admin/teams/${teamId}/players/${playerId}`, {
+      method: "PATCH",
+      body: { name, goals },
+    }),
+  deleteTeamPlayer: (teamId, playerId) =>
+    request(`/admin/teams/${teamId}/players/${playerId}`, { method: "DELETE" }),
 
   listMarkets: () => request("/markets"),
   getMarket: (id) => request(`/markets/${id}`),
