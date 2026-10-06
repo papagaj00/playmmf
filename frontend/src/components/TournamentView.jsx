@@ -1,6 +1,5 @@
 import { useState } from "react";
 import LoadingState from "./LoadingState";
-import { api } from "../api";
 import { TEAM_LOGOS, teamInitials } from "../teamLogos";
 
 const GROUPS = {
@@ -145,168 +144,15 @@ function PlayoffBracket({ markets, open, onToggle }) {
     );
 }
 
-function RosterPlayer({ teamId, player, isAdmin, onChange, onRemove, onError }) {
-    const [goals, setGoals] = useState(player.goals);
-    const [saving, setSaving] = useState(false);
-
-    async function saveGoals() {
-        const nextGoals = Math.max(0, Number(goals) || 0);
-        if (nextGoals === player.goals) return;
-        setSaving(true);
-        try {
-            const updated = await api.updateTeamPlayer(teamId, player.id, player.name, nextGoals);
-            onChange(updated);
-        } catch (error) {
-            setGoals(player.goals);
-            onError(error.message || "Góly se nepodařilo uložit.");
-        } finally {
-            setSaving(false);
-        }
-    }
-
-    return (
-        <div className="roster-player">
-            <span className="roster-player__number">{player.sort_order + 1}</span>
-            <span>{player.name}</span>
-            {isAdmin ? (
-                <input
-                    className="roster-player__goals-input"
-                    type="number"
-                    min="0"
-                    step="1"
-                    value={goals}
-                    aria-label={`Góly hráče ${player.name}`}
-                    disabled={saving}
-                    onChange={(event) => setGoals(event.target.value)}
-                    onBlur={saveGoals}
-                />
-            ) : <strong>{player.goals} g</strong>}
-            {isAdmin && (
-                <button className="roster-player__delete" type="button" title={`Odebrat ${player.name}`} aria-label={`Odebrat ${player.name}`} onClick={() => onRemove(player)}>
-                    ×
-                </button>
-            )}
-        </div>
-    );
-}
-
-function RosterPanel({ roster, isAdmin, onRosterChange }) {
-    const [addOpen, setAddOpen] = useState(false);
-    const [playerName, setPlayerName] = useState("");
-    const [playerGoals, setPlayerGoals] = useState(0);
-    const [error, setError] = useState("");
-    if (!roster) return null;
-    const statusText = {
-        pending: "Zatím nebyl vyhodnocen žádný zápas.",
-        consistent: "Góly hráčů souhlasí s výsledky týmu.",
-        mismatch: "Součet gólů hráčů nesouhlasí s výsledky týmu.",
-    }[roster.goals_status];
-    return (
-        <div className="roster-panel">
-            <div className="roster-panel__header">
-                <TeamMark name={roster.name} />
-                <div>
-                    <h3>{roster.name}</h3>
-                    <p>{roster.players.length} hráčů</p>
-                </div>
-                <div className={`roster-goals roster-goals--${roster.goals_status}`}>
-                    <strong>{roster.roster_goals}</strong><span> / {roster.team_goals} gólů</span>
-                </div>
-                {isAdmin && <button className="roster-add-button" type="button" title="Přidat hráče" aria-label="Přidat hráče" onClick={() => setAddOpen((open) => !open)}>+</button>}
-            </div>
-            <div className={`roster-status roster-status--${roster.goals_status}`} role="status">{statusText}</div>
-            {error && !addOpen && <div className="roster-panel__error" role="alert">{error}</div>}
-            {isAdmin && addOpen && (
-                <form className="roster-add-form" onSubmit={async (event) => {
-                    event.preventDefault();
-                    const name = playerName.trim();
-                    if (!name) return setError("Zadej jméno hráče.");
-                    try {
-                        const player = await api.addTeamPlayer(roster.id, name, Math.max(0, Number(playerGoals) || 0));
-                        onRosterChange({ ...roster, players: [...roster.players, player], roster_goals: roster.roster_goals + player.goals });
-                        setPlayerName("");
-                        setPlayerGoals(0);
-                        setAddOpen(false);
-                        setError("");
-                    } catch (err) {
-                        setError(err.message);
-                    }
-                }}>
-                    <input value={playerName} onChange={(event) => setPlayerName(event.target.value)} placeholder="Jméno hráče" autoFocus />
-                    <input type="number" min="0" step="1" value={playerGoals} onChange={(event) => setPlayerGoals(event.target.value)} aria-label="Počáteční góly" />
-                    <button className="btn-small" type="submit">Přidat</button>
-                    {error && <span className="roster-add-form__error">{error}</span>}
-                </form>
-            )}
-            {roster.players.length === 0 ? (
-                <div className="roster-empty">Soupiska zatím není vyplněná.</div>
-            ) : (
-                <div className="roster-player-list">
-                    {roster.players.map((player) => <RosterPlayer key={player.id} teamId={roster.id} player={player} isAdmin={isAdmin} onError={setError} onChange={(updated) => onRosterChange({ ...roster, players: roster.players.map((item) => item.id === updated.id ? updated : item), roster_goals: roster.players.reduce((total, item) => total + (item.id === updated.id ? updated.goals : item.goals), 0) })} onRemove={async (removed) => {
-                        if (!window.confirm(`Odebrat hráče ${removed.name} ze soupisky?`)) return;
-                        try {
-                            await api.deleteTeamPlayer(roster.id, removed.id);
-                            onRosterChange({ ...roster, players: roster.players.filter((item) => item.id !== removed.id), roster_goals: roster.roster_goals - removed.goals });
-                        } catch (err) {
-                            setError(err.message);
-                        }
-                    }} />)}
-                </div>
-            )}
-        </div>
-    );
-}
-
-function RosterDirectory({ rosters, open, onToggle, selectedTeamId, onSelect, isAdmin, onRosterChange }) {
-    const selectedRoster = rosters.find((roster) => roster.id === selectedTeamId);
-    return (
-        <section className="tournament-section tournament-section--rosters">
-            <button className="tournament-section__toggle" type="button" onClick={onToggle} aria-expanded={open}>
-                <span>Týmy</span>
-                <span className="tournament-section__arrow">{open ? "↑" : "↓"}</span>
-            </button>
-            {open && (
-                <div className="roster-directory">
-                    <div className="roster-team-picker">
-                        {rosters.map((roster) => (
-                            <button
-                                className={`roster-team-button ${selectedTeamId === roster.id ? "active" : ""}`}
-                                type="button"
-                                key={roster.id}
-                                onClick={() => onSelect(roster.id)}
-                            >
-                                <TeamMark name={roster.name} />
-                                <span>{roster.name}</span>
-                            </button>
-                        ))}
-                    </div>
-                    <RosterPanel roster={selectedRoster} isAdmin={isAdmin} onRosterChange={onRosterChange} />
-                </div>
-            )}
-        </section>
-    );
-}
-
-export default function TournamentView({ markets, rosters, loading, isAdmin, onRosterChange }) {
+export default function TournamentView({ markets, loading }) {
     const [openGroups, setOpenGroups] = useState({ "Skupina A": false, "Skupina B": false });
     const [playoffsOpen, setPlayoffsOpen] = useState(false);
-    const [rosterDirectoryOpen, setRosterDirectoryOpen] = useState(false);
-    const [selectedTeamId, setSelectedTeamId] = useState(null);
 
     if (loading) return <LoadingState label="Načítám turnaj…" />;
 
     return (
         <div className="tournament-view">
             <h2 className="section-title tournament-title">Turnaj</h2>
-            <RosterDirectory
-                rosters={rosters}
-                open={rosterDirectoryOpen}
-                selectedTeamId={selectedTeamId}
-                onToggle={() => setRosterDirectoryOpen((open) => !open)}
-                onSelect={setSelectedTeamId}
-                isAdmin={isAdmin}
-                onRosterChange={onRosterChange}
-            />
             <div className="tournament-groups">
                 {Object.entries(GROUPS).map(([name, teamNames]) => (
                     <GroupTable

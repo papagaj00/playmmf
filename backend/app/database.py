@@ -46,7 +46,6 @@ def ensure_auth_columns() -> None:
         "UPDATE users SET is_admin = TRUE WHERE lower(email) = :email",
         {"email": ADMIN_EMAIL},
     )
-    _execute_migration("UPDATE users SET balance = ROUND(balance)")
 
 
 def ensure_pool_columns() -> None:
