@@ -273,10 +273,11 @@ function RosterDirectory({ rosters, open, onToggle, selectedTeamId, onSelect, is
                                 className={`roster-team-button ${selectedTeamId === roster.id ? "active" : ""}`}
                                 type="button"
                                 key={roster.id}
+                                title={roster.name}
+                                aria-label={`Zobrazit soupisku týmu ${roster.name}`}
                                 onClick={() => onSelect(roster.id)}
                             >
                                 <TeamMark name={roster.name} />
-                                <span>{roster.name}</span>
                             </button>
                         ))}
                     </div>
