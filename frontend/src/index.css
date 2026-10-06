@@ -458,8 +458,8 @@ select {
 }
 
 .roster-team-picker {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, 58px);
     justify-content: center;
     gap: 8px;
 }
