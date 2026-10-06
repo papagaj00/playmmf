@@ -195,7 +195,7 @@ function RosterPanel({ roster, isAdmin, onRosterChange }) {
     const [playerName, setPlayerName] = useState("");
     const [playerGoals, setPlayerGoals] = useState(0);
     const [error, setError] = useState("");
-    if (!roster) return <div className="roster-empty">Vyber tým a zobrazí se jeho soupiska.</div>;
+    if (!roster) return null;
     const statusText = {
         pending: "Zatím nebyl vyhodnocen žádný zápas.",
         consistent: "Góly hráčů souhlasí s výsledky týmu.",
