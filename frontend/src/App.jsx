@@ -40,7 +40,7 @@ export default function App() {
     try {
       const system = await api.systemStatus();
       setMaintenance(system.maintenance);
-      if (system.maintenance) {
+      if (system.maintenance && !adminVerified) {
         setInitialDataLoading(false);
         setError(null);
         return;
@@ -69,7 +69,7 @@ export default function App() {
     } finally {
       setInitialDataLoading(refreshFailures.current > 0 && !markets.length);
     }
-  }, [username, markets.length]);
+  }, [adminVerified, username, markets.length]);
 
   useEffect(() => {
     refreshAll();
