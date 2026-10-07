@@ -209,12 +209,14 @@ function RosterPanel({ roster, isAdmin, onRosterChange }) {
                     <h3>{roster.name}</h3>
                     <p>{roster.players.length} hráčů</p>
                 </div>
-                <div className={`roster-goals roster-goals--${roster.goals_status}`}>
-                    <strong>{roster.roster_goals}</strong><span> / {roster.team_goals} gólů</span>
-                </div>
+                {isAdmin && (
+                    <div className={`roster-goals roster-goals--${roster.goals_status}`}>
+                        <strong>{roster.roster_goals}</strong><span> / {roster.team_goals} gólů</span>
+                    </div>
+                )}
                 {isAdmin && <button className="roster-add-button" type="button" title="Přidat hráče" aria-label="Přidat hráče" onClick={() => setAddOpen((open) => !open)}>+</button>}
             </div>
-            <div className={`roster-status roster-status--${roster.goals_status}`} role="status">{statusText}</div>
+            {isAdmin && <div className={`roster-status roster-status--${roster.goals_status}`} role="status">{statusText}</div>}
             {error && !addOpen && <div className="roster-panel__error" role="alert">{error}</div>}
             {isAdmin && addOpen && (
                 <form className="roster-add-form" onSubmit={async (event) => {
