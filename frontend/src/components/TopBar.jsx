@@ -17,6 +17,8 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
     && "Notification" in window
   ));
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushConfigured, setPushConfigured] = useState(false);
+  const [pushPromptOpen, setPushPromptOpen] = useState(false);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState("");
   const readStorageKey = `gbn-info-read:${username}`;
@@ -50,8 +52,17 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
   }, [infoOpen, markMessagesRead, username]);
 
   useEffect(() => {
-    if (pushSupported) api.getPushStatus().then((status) => setPushEnabled(status.enabled)).catch(() => {});
-  }, [pushSupported]);
+    if (!pushSupported) return;
+    Promise.all([api.getPushStatus(), api.getPushPublicKey()]).then(([status, key]) => {
+      setPushEnabled(status.enabled);
+      const configured = Boolean(key.public_key);
+      setPushConfigured(configured);
+      const dismissed = localStorage.getItem(`gbn-push-prompt-dismissed:${username}`) === "true";
+      if (configured && !status.enabled && Notification.permission !== "denied" && !dismissed) {
+        setPushPromptOpen(true);
+      }
+    }).catch(() => {});
+  }, [pushSupported, username]);
 
   function base64ToBytes(value) {
     const padding = "=".repeat((4 - (value.length % 4)) % 4);
@@ -84,6 +95,7 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
       const json = subscription.toJSON();
       await api.subscribePush({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
       setPushEnabled(true);
+      setPushPromptOpen(false);
     } catch (error) {
       setPushError(error.message || "Upozornění se nepodařilo nastavit.");
     } finally {
@@ -139,6 +151,19 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
             )}
             {pushError && <small className="push-error">{pushError}</small>}
             <button onClick={onLogout}><LogOut size={16} /> Přepnout uživatele</button>
+          </div>
+        )}
+        {pushPromptOpen && pushConfigured && (
+          <div className="push-prompt" role="dialog" aria-label="Povolit upozornění">
+            <button className="push-prompt__dismiss" type="button" aria-label="Zavřít" onClick={() => {
+              localStorage.setItem(`gbn-push-prompt-dismissed:${username}`, "true");
+              setPushPromptOpen(false);
+            }}>×</button>
+            <strong>Chceš dostávat upozornění?</strong>
+            <p>Upozorníme tě, když admin vytvoří nový zápas.</p>
+            <button className="btn-small" type="button" onClick={togglePush} disabled={pushBusy}>
+              <Bell size={14} /> {pushBusy ? "Nastavuji…" : "Povolit upozornění"}
+            </button>
           </div>
         )}
         {infoOpen && (

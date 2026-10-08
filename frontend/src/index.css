@@ -185,6 +185,49 @@ select {
     line-height: 1.35;
 }
 
+.push-prompt {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 41;
+    display: grid;
+    gap: 8px;
+    width: min(300px, calc(100vw - 32px));
+    padding: 16px;
+    color: var(--text);
+    background: var(--surface-raised);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+}
+
+.push-prompt strong {
+    padding-right: 20px;
+    font-family: var(--font-display);
+    font-size: 18px;
+}
+
+.push-prompt p {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.push-prompt__dismiss {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    color: var(--text-dim);
+    background: transparent;
+    border: 0;
+    font-size: 20px;
+}
+
 .help-panel {
     position: absolute;
     top: calc(100% + 8px);
