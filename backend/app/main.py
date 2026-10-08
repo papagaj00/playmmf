@@ -205,7 +205,10 @@ def push_public_key():
 
 @app.get("/push/status", response_model=schemas.PushStatus)
 def push_status(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return {"enabled": crud.push_status(db, user)}
+    return {
+        "enabled": crud.push_status(db, user),
+        "configured": crud.push_configured(),
+    }
 
 
 @app.post("/push/subscribe", response_model=schemas.PushStatus)
@@ -215,7 +218,10 @@ def push_subscribe(
     db: Session = Depends(get_db),
 ):
     crud.save_push_subscription(db, user, payload.endpoint, payload.p256dh, payload.auth)
-    return {"enabled": crud.push_status(db, user)}
+    return {
+        "enabled": crud.push_status(db, user),
+        "configured": crud.push_configured(),
+    }
 
 
 @app.delete("/push/subscribe", response_model=schemas.PushStatus)
@@ -225,7 +231,10 @@ def push_unsubscribe(
     db: Session = Depends(get_db),
 ):
     crud.remove_push_subscription(db, user, payload.endpoint)
-    return {"enabled": crud.push_status(db, user)}
+    return {
+        "enabled": crud.push_status(db, user),
+        "configured": crud.push_configured(),
+    }
 
 
 @app.post("/admin/info/messages", response_model=schemas.InfoMessageOut, dependencies=[Depends(require_admin)])

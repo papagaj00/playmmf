@@ -238,6 +238,29 @@ def test_balance_adjustments_are_stored_as_whole_points():
 
 def test_info_messages_are_visible_to_players_and_writable_only_by_admin():
     client.post("/auth/logout")
+    unauthorized = client.post("/admin/info/messages", json={"text": "Admin update"})
+    assert unauthorized.status_code == 401
+
+    register("info-player")
+    forbidden = client.post(
+        "/admin/info/messages",
+        json={"text": "Player update"},
+    )
+    assert forbidden.status_code == 403
+
+    created = client.post(
+        "/admin/info/messages",
+        json={"text": "  Admin update  "},
+        headers=ADMIN_HEADERS,
+    )
+    assert created.status_code == 200
+    assert created.json()["text"] == "Admin update"
+    assert "created_at" in created.json()
+
+    messages = client.get("/info/messages", headers=ADMIN_HEADERS)
+    assert messages.status_code == 200
+    assert messages.json()[0]["text"] == "Admin update"
+    client.post("/auth/logout")
 
 
 def test_info_message_notifies_active_push_subscriptions(monkeypatch):
@@ -342,29 +365,6 @@ def test_push_subscription_is_owned_by_authenticated_user():
         row = db.query(models.PushSubscription).filter_by(id=first_id).one()
         assert row.active is True
         assert db.query(models.PushSubscription).count() == 1
-    client.post("/auth/logout")
-    unauthorized = client.post("/admin/info/messages", json={"text": "Admin update"})
-    assert unauthorized.status_code == 401
-
-    register("info-player")
-    forbidden = client.post(
-        "/admin/info/messages",
-        json={"text": "Player update"},
-    )
-    assert forbidden.status_code == 403
-
-    created = client.post(
-        "/admin/info/messages",
-        json={"text": "  Admin update  "},
-        headers=ADMIN_HEADERS,
-    )
-    assert created.status_code == 200
-    assert created.json()["text"] == "Admin update"
-    assert "created_at" in created.json()
-
-    messages = client.get("/info/messages")
-    assert messages.status_code == 200
-    assert messages.json()[0]["text"] == "Admin update"
     client.post("/auth/logout")
 
 

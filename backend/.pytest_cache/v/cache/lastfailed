@@ -1,1 +1,7 @@
-{}
+{
+  "tests/test_api.py::test_cannot_sell_more_shares_than_held": true,
+  "tests/test_api.py::test_rejects_zero_and_fractional_trades": true,
+  "tests/test_api.py::test_buying_does_not_create_immediate_liquidation_profit": true,
+  "tests/test_api.py::test_cannot_trade_on_resolved_market": true,
+  "tests/test_api.py::test_market_creation_requires_admin_key": true
+}

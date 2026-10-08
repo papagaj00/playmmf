@@ -117,6 +117,13 @@ def push_status(db: Session, user: models.User) -> bool:
     return push_public_key() is not None and any(subscription.active for subscription in user.push_subscriptions)
 
 
+def push_configured() -> bool:
+    return all(
+        os.environ.get(name)
+        for name in ("PUSH_VAPID_PUBLIC_KEY", "PUSH_VAPID_PRIVATE_KEY", "PUSH_VAPID_SUBJECT")
+    )
+
+
 def save_push_subscription(
     db: Session, user: models.User, endpoint: str, p256dh: str, auth: str
 ) -> models.PushSubscription:

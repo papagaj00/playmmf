@@ -89,6 +89,7 @@ class PushSubscriptionCreate(BaseModel):
 
 class PushStatus(BaseModel):
     enabled: bool
+    configured: bool
 
 
 class PushPublicKey(BaseModel):

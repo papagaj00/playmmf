@@ -58,6 +58,13 @@ uvicorn app.main:app --reload
 # The frontend receives the matching public key from /push/public-key.
 ```
 
+Use the bell beside the info-channel button to manage push notifications at any
+time. On iPhone or iPad, add PlayMMF to the Home Screen from Safari's Share menu
+and open it from its icon before enabling push. iOS/iPadOS requires a Home Screen
+web app for Web Push, and notification permission is requested only after the
+user taps the enable button. Production must use HTTPS and have all three VAPID
+values configured.
+
 The API runs on `http://localhost:8000`. Interactive docs are at
 `http://localhost:8000/docs` (FastAPI's auto-generated Swagger UI) — handy
 for testing endpoints before the frontend is wired up.

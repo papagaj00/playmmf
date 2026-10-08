@@ -3,6 +3,19 @@ import { Bell, ChevronDown, LogOut, MessageSquareText, Send, X } from "lucide-re
 import { api } from "../api";
 import { formatPoints } from "../format";
 
+function isIOSDevice() {
+  if (typeof navigator === "undefined") return false;
+  return /iPhone|iPad|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function supportsPushNotifications() {
+  if (typeof window === "undefined" || !window.isSecureContext) return false;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || !("Notification" in window)) return false;
+  if (!isIOSDevice()) return true;
+  return navigator.standalone === true || window.matchMedia?.("(display-mode: standalone)").matches === true;
+}
+
 export default function TopBar({ username, balance, onLogout, isAdmin }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -10,17 +23,17 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
   const [messageText, setMessageText] = useState("");
   const [messageError, setMessageError] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
-  const [pushSupported] = useState(() => (
-    typeof window !== "undefined"
-    && "serviceWorker" in navigator
-    && "PushManager" in window
-    && "Notification" in window
-  ));
+  const [pushSupported] = useState(supportsPushNotifications);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushConfigured, setPushConfigured] = useState(false);
-  const [pushPromptOpen, setPushPromptOpen] = useState(false);
+  const [pushPublicKey, setPushPublicKey] = useState("");
+  const [pushDialogMode, setPushDialogMode] = useState(null);
   const [pushBusy, setPushBusy] = useState(false);
   const [pushError, setPushError] = useState("");
+  const [pushStatusError, setPushStatusError] = useState(false);
+  const [pushPermission, setPushPermission] = useState(() => (
+    typeof Notification === "undefined" ? "unsupported" : Notification.permission
+  ));
   const readStorageKey = `gbn-info-read:${username}`;
   const [lastReadId, setLastReadId] = useState(() => Number(localStorage.getItem(readStorageKey) || 0));
 
@@ -52,17 +65,23 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
   }, [infoOpen, markMessagesRead, username]);
 
   useEffect(() => {
-    if (!pushSupported) return;
-    Promise.all([api.getPushStatus(), api.getPushPublicKey()]).then(([status, key]) => {
+    let active = true;
+    Promise.all([
+      api.getPushStatus(),
+      api.getPushPublicKey().catch(() => ({ public_key: "" })),
+    ]).then(([status, key]) => {
+      if (!active) return;
       setPushEnabled(status.enabled);
-      const configured = Boolean(key.public_key);
-      setPushConfigured(configured);
-      const dismissed = localStorage.getItem(`gbn-push-prompt-dismissed:${username}`) === "true";
-      if (configured && !status.enabled && Notification.permission !== "denied" && !dismissed) {
-        setPushPromptOpen(true);
-      }
-    }).catch(() => {});
-  }, [pushSupported, username]);
+      setPushPublicKey(key.public_key || "");
+      setPushConfigured(status.configured && Boolean(key.public_key));
+      setPushStatusError(false);
+    }).catch(() => {
+      if (active) setPushStatusError(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [username]);
 
   function base64ToBytes(value) {
     const padding = "=".repeat((4 - (value.length % 4)) % 4);
@@ -70,38 +89,85 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
     return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
   }
 
-  async function togglePush() {
+  function closePushDialog() {
+    setPushDialogMode(null);
+    setPushError("");
+  }
+
+  async function enablePush() {
+    if (!pushSupported || !pushConfigured || !pushPublicKey) return;
+    if (Notification.permission === "denied") {
+      setPushPermission("denied");
+      return;
+    }
+
+    const permissionRequest = Notification.requestPermission();
     setPushBusy(true);
     setPushError("");
     try {
+      const permission = await permissionRequest;
+      setPushPermission(permission);
+      if (permission !== "granted") {
+        setPushError("Povolení upozornění nebylo uděleno.");
+        return;
+      }
+
       const registration = await navigator.serviceWorker.register("/sw.js");
       const existing = await registration.pushManager.getSubscription();
       if (existing) {
         const json = existing.toJSON();
-        await api.unsubscribePush({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
-        await existing.unsubscribe();
-        setPushEnabled(false);
-        return;
+        await api.subscribePush({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
+      } else {
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: base64ToBytes(pushPublicKey),
+        });
+        const json = subscription.toJSON();
+        await api.subscribePush({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
       }
-      if (Notification.permission === "denied") throw new Error("Upozornění jsou v prohlížeči zablokovaná.");
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") throw new Error("Povolení upozornění nebylo uděleno.");
-      const { public_key: publicKey } = await api.getPushPublicKey();
-      if (!publicKey) throw new Error("Push upozornění zatím nejsou nakonfigurovaná.");
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: base64ToBytes(publicKey),
-      });
-      const json = subscription.toJSON();
-      await api.subscribePush({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
       setPushEnabled(true);
-      setPushPromptOpen(false);
+      setPushDialogMode(null);
     } catch (error) {
       setPushError(error.message || "Upozornění se nepodařilo nastavit.");
     } finally {
       setPushBusy(false);
     }
   }
+
+  async function disablePush() {
+    setPushBusy(true);
+    setPushError("");
+    try {
+      const registration = await navigator.serviceWorker.getRegistration("/");
+      const existing = await registration?.pushManager.getSubscription();
+      if (!existing) throw new Error("Aktivní předplatné v tomto prohlížeči nebylo nalezeno.");
+      const json = existing.toJSON();
+      await api.unsubscribePush({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
+      await existing.unsubscribe();
+      setPushEnabled(false);
+    } catch (error) {
+      setPushError(error.message || "Upozornění se nepodařilo vypnout.");
+      setPushDialogMode("settings");
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
+  function openPushSettings() {
+    setPushError("");
+    setPushDialogMode("settings");
+  }
+
+  const pushCanEnable = pushSupported && pushConfigured && pushPermission !== "denied";
+  const pushHelp = pushStatusError
+    ? "Stav upozornění se nepodařilo načíst. Zkus to znovu později."
+    : !pushConfigured
+      ? "Upozornění zatím nejsou na serveru nakonfigurovaná. Informační zprávy a novinky uvidíš přímo v aplikaci."
+      : !pushSupported
+        ? "Push upozornění nejsou v tomto prohlížeči dostupná."
+        : pushPermission === "denied"
+          ? "Upozornění jsou v prohlížeči zablokovaná. Povol je v nastavení oprávnění tohoto webu a pak to zkus znovu."
+          : "Dostaneš upozornění na nové zápasy a důležité informační zprávy.";
 
   async function handleSendMessage(event) {
     event.preventDefault();
@@ -137,6 +203,16 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
           <MessageSquareText size={18} />
           {messages[0]?.id > lastReadId && <span className="info-unread-dot" aria-label="Nové informační zprávy" />}
         </button>
+        <button
+          className="push-button"
+          type="button"
+          aria-label="Nastavení upozornění"
+          title="Nastavení upozornění"
+          aria-expanded={Boolean(pushDialogMode)}
+          onClick={openPushSettings}
+        >
+          <Bell size={18} />
+        </button>
         <button className="balance-chip" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen}>
           <b>{formatPoints(balance)}</b> bodů
           <ChevronDown size={16} />
@@ -144,26 +220,34 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
         {menuOpen && (
           <div className="account-menu">
             <span>{username}</span>
-            {pushSupported && (
-              <button onClick={togglePush} disabled={pushBusy}>
-                <Bell size={16} /> {pushBusy ? "Nastavuji…" : pushEnabled ? "Vypnout upozornění" : "Povolit upozornění"}
-              </button>
-            )}
-            {pushError && <small className="push-error">{pushError}</small>}
             <button onClick={onLogout}><LogOut size={16} /> Přepnout uživatele</button>
           </div>
         )}
-        {pushPromptOpen && pushConfigured && (
-          <div className="push-prompt" role="dialog" aria-label="Povolit upozornění">
-            <button className="push-prompt__dismiss" type="button" aria-label="Zavřít" onClick={() => {
-              localStorage.setItem(`gbn-push-prompt-dismissed:${username}`, "true");
-              setPushPromptOpen(false);
-            }}>×</button>
-            <strong>Upozornění na zápasy?</strong>
-            <p>Upozorníme tě, když se vytvoří nový zápas.</p>
-            <button className="btn-small" type="button" onClick={togglePush} disabled={pushBusy}>
-              <Bell size={14} /> {pushBusy ? "Nastavuji…" : "Povolit upozornění"}
-            </button>
+        {pushDialogMode && (
+          <div className="push-onboarding-layer" role="presentation">
+            <button className="push-onboarding-scrim" type="button" aria-label="Zavřít upozornění" onClick={closePushDialog} />
+            <section className="push-onboarding" role="dialog" aria-modal="true" aria-labelledby="push-onboarding-title">
+              <button className="push-onboarding__close" type="button" aria-label="Zavřít" onClick={closePushDialog}><X size={18} /></button>
+              <span className="push-onboarding__icon"><Bell size={22} /></span>
+              <h2 id="push-onboarding-title">Upozornění PlayMMF</h2>
+              <p>{pushHelp}</p>
+              {pushError && <p className="push-error">{pushError}</p>}
+              <div className="push-onboarding__actions">
+                {pushCanEnable && !pushEnabled && (
+                  <button className="push-onboarding__enable" type="button" onClick={enablePush} disabled={pushBusy}>
+                    <Bell size={16} /> {pushBusy ? "Nastavuji…" : "Povolit upozornění"}
+                  </button>
+                )}
+                {pushEnabled && pushSupported && (
+                  <button className="push-onboarding__enable" type="button" onClick={disablePush} disabled={pushBusy}>
+                    {pushBusy ? "Vypínám…" : "Vypnout upozornění"}
+                  </button>
+                )}
+                <button className="push-onboarding__dismiss" type="button" onClick={closePushDialog}>
+                  Zavřít
+                </button>
+              </div>
+            </section>
           </div>
         )}
         {infoOpen && (
