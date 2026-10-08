@@ -81,6 +81,20 @@ class InfoMessageOut(BaseModel):
     created_at: datetime
 
 
+class PushSubscriptionCreate(BaseModel):
+    endpoint: str = Field(min_length=1, max_length=2000)
+    p256dh: str = Field(min_length=1, max_length=255)
+    auth: str = Field(min_length=1, max_length=255)
+
+
+class PushStatus(BaseModel):
+    enabled: bool
+
+
+class PushPublicKey(BaseModel):
+    public_key: str | None
+
+
 # ---------- Markets / Outcomes ----------
 
 class MarketCreate(BaseModel):

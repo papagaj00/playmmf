@@ -174,6 +174,36 @@ def info_messages(user: models.User = Depends(get_current_user), db: Session = D
     return crud.list_info_messages(db)
 
 
+@app.get("/push/public-key", response_model=schemas.PushPublicKey)
+def push_public_key():
+    return {"public_key": crud.push_public_key()}
+
+
+@app.get("/push/status", response_model=schemas.PushStatus)
+def push_status(user: models.User = Depends(get_current_user), db: Session = Depends(get_db)):
+    return {"enabled": crud.push_status(db, user)}
+
+
+@app.post("/push/subscribe", response_model=schemas.PushStatus)
+def push_subscribe(
+    payload: schemas.PushSubscriptionCreate,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    crud.save_push_subscription(db, user, payload.endpoint, payload.p256dh, payload.auth)
+    return {"enabled": crud.push_status(db, user)}
+
+
+@app.delete("/push/subscribe", response_model=schemas.PushStatus)
+def push_unsubscribe(
+    payload: schemas.PushSubscriptionCreate,
+    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    crud.remove_push_subscription(db, user, payload.endpoint)
+    return {"enabled": crud.push_status(db, user)}
+
+
 @app.post("/admin/info/messages", response_model=schemas.InfoMessageOut, dependencies=[Depends(require_admin)])
 def create_info_message(payload: schemas.InfoMessageCreate, db: Session = Depends(get_db)):
     return crud.create_info_message(db, payload.text)
@@ -281,6 +311,7 @@ def create_market(payload: schemas.MarketCreate, db: Session = Depends(get_db)):
         )
     except (crud.InvalidTrade, KeyError) as error:
         raise HTTPException(status_code=400, detail=str(error))
+    crud.notify_market_created(db, market)
     return _market_to_out(market)
 
 

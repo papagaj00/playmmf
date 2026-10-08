@@ -55,6 +55,10 @@ export const api = {
   me: () => request("/auth/me"),
   systemStatus: () => request("/system/status"),
   getInfoMessages: () => request("/info/messages"),
+  getPushPublicKey: () => request("/push/public-key"),
+  getPushStatus: () => request("/push/status"),
+  subscribePush: (payload) => request("/push/subscribe", { method: "POST", body: payload }),
+  unsubscribePush: (payload) => request("/push/subscribe", { method: "DELETE", body: payload }),
   createInfoMessage: (text) =>
     request("/admin/info/messages", { method: "POST", body: { text } }),
   getUser: (username) => request(`/users/${encodeURIComponent(username)}`),

@@ -6,3 +6,4 @@ pytest>=8.0
 httpx>=0.26
 pwdlib[argon2]>=0.2
 psycopg[binary]>=3.2
+pywebpush>=2.0

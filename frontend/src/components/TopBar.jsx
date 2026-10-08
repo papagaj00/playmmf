@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ChevronDown, LogOut, MessageSquareText, Send, X } from "lucide-react";
+import { Bell, ChevronDown, LogOut, MessageSquareText, Send, X } from "lucide-react";
 import { api } from "../api";
 import { formatPoints } from "../format";
 
@@ -10,6 +10,15 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
   const [messageText, setMessageText] = useState("");
   const [messageError, setMessageError] = useState("");
   const [messageBusy, setMessageBusy] = useState(false);
+  const [pushSupported] = useState(() => (
+    typeof window !== "undefined"
+    && "serviceWorker" in navigator
+    && "PushManager" in window
+    && "Notification" in window
+  ));
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState("");
   const readStorageKey = `gbn-info-read:${username}`;
   const [lastReadId, setLastReadId] = useState(() => Number(localStorage.getItem(readStorageKey) || 0));
 
@@ -39,6 +48,48 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
       clearInterval(interval);
     };
   }, [infoOpen, markMessagesRead, username]);
+
+  useEffect(() => {
+    if (pushSupported) api.getPushStatus().then((status) => setPushEnabled(status.enabled)).catch(() => {});
+  }, [pushSupported]);
+
+  function base64ToBytes(value) {
+    const padding = "=".repeat((4 - (value.length % 4)) % 4);
+    const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+    return Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+  }
+
+  async function togglePush() {
+    setPushBusy(true);
+    setPushError("");
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+      const existing = await registration.pushManager.getSubscription();
+      if (existing) {
+        const json = existing.toJSON();
+        await api.unsubscribePush({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
+        await existing.unsubscribe();
+        setPushEnabled(false);
+        return;
+      }
+      if (Notification.permission === "denied") throw new Error("Upozornění jsou v prohlížeči zablokovaná.");
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") throw new Error("Povolení upozornění nebylo uděleno.");
+      const { public_key: publicKey } = await api.getPushPublicKey();
+      if (!publicKey) throw new Error("Push upozornění zatím nejsou nakonfigurovaná.");
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64ToBytes(publicKey),
+      });
+      const json = subscription.toJSON();
+      await api.subscribePush({ endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth });
+      setPushEnabled(true);
+    } catch (error) {
+      setPushError(error.message || "Upozornění se nepodařilo nastavit.");
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   async function handleSendMessage(event) {
     event.preventDefault();
@@ -81,6 +132,12 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
         {menuOpen && (
           <div className="account-menu">
             <span>{username}</span>
+            {pushSupported && (
+              <button onClick={togglePush} disabled={pushBusy}>
+                <Bell size={16} /> {pushBusy ? "Nastavuji…" : pushEnabled ? "Vypnout upozornění" : "Povolit upozornění"}
+              </button>
+            )}
+            {pushError && <small className="push-error">{pushError}</small>}
             <button onClick={onLogout}><LogOut size={16} /> Přepnout uživatele</button>
           </div>
         )}

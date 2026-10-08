@@ -103,6 +103,85 @@ def create_info_message(db: Session, text: str) -> models.InfoMessage:
     return message
 
 
+def push_public_key() -> str | None:
+    return os.environ.get("PUSH_VAPID_PUBLIC_KEY") or None
+
+
+def push_status(db: Session, user: models.User) -> bool:
+    return push_public_key() is not None and any(subscription.active for subscription in user.push_subscriptions)
+
+
+def save_push_subscription(
+    db: Session, user: models.User, endpoint: str, p256dh: str, auth: str
+) -> models.PushSubscription:
+    subscription = (
+        db.query(models.PushSubscription)
+        .filter_by(user_id=user.id, endpoint=endpoint)
+        .first()
+    )
+    if subscription is None:
+        subscription = models.PushSubscription(
+            user_id=user.id, endpoint=endpoint, p256dh=p256dh, auth=auth
+        )
+        db.add(subscription)
+    else:
+        subscription.p256dh = p256dh
+        subscription.auth = auth
+        subscription.active = True
+    db.commit()
+    db.refresh(subscription)
+    return subscription
+
+
+def remove_push_subscription(db: Session, user: models.User, endpoint: str) -> None:
+    db.query(models.PushSubscription).filter_by(user_id=user.id, endpoint=endpoint).delete(
+        synchronize_session=False
+    )
+    db.commit()
+
+
+def notify_market_created(db: Session, market: models.Market) -> int:
+    private_key = os.environ.get("PUSH_VAPID_PRIVATE_KEY")
+    subject = os.environ.get("PUSH_VAPID_SUBJECT")
+    if not private_key or not subject:
+        return 0
+    try:
+        import json
+        from pywebpush import WebPushException, webpush
+    except ImportError:
+        return 0
+
+    outcome_names = [outcome.name for outcome in market.outcomes]
+    matchup = " vs ".join(outcome_names) if outcome_names else market.title
+    body = matchup
+    if market.scheduled_at:
+        body += f" · {market.scheduled_at.astimezone(timezone.utc).strftime('%d.%m. %H:%M')} UTC"
+    payload = json.dumps({"title": "Nový zápas", "body": body, "market_id": market.id})
+    sent = 0
+    subscriptions = db.query(models.PushSubscription).filter_by(active=True).all()
+    for subscription in subscriptions:
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": subscription.endpoint,
+                    "keys": {"p256dh": subscription.p256dh, "auth": subscription.auth},
+                },
+                data=payload,
+                vapid_private_key=private_key,
+                vapid_claims={"sub": subject},
+            )
+            sent += 1
+        except WebPushException as error:
+            response = getattr(error, "response", None)
+            if response is not None and response.status_code in (404, 410):
+                subscription.active = False
+        except Exception:
+            # Notification delivery must never roll back or hide a created market.
+            continue
+    db.commit()
+    return sent
+
+
 def _validate_trade(shares: float, amount: float) -> None:
     if abs(shares) < MIN_TRADE_SHARES:
         raise InvalidTrade(f"Sázka musí mít alespoň {MIN_TRADE_SHARES:g} jednotku.")

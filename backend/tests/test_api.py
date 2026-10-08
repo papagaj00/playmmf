@@ -235,6 +235,24 @@ def test_balance_adjustments_are_stored_as_whole_points():
 
 def test_info_messages_are_visible_to_players_and_writable_only_by_admin():
     client.post("/auth/logout")
+
+
+def test_push_subscription_is_owned_by_authenticated_user():
+    register("push-player")
+    subscription = {
+        "endpoint": "https://push.example/subscription-1",
+        "p256dh": "public-key",
+        "auth": "auth-secret",
+    }
+    created = client.post("/push/subscribe", json=subscription)
+    assert created.status_code == 200
+    assert created.json()["enabled"] is False
+    assert client.get("/push/status").json()["enabled"] is False
+
+    removed = client.request("DELETE", "/push/subscribe", json=subscription)
+    assert removed.status_code == 200
+    assert removed.json()["enabled"] is False
+    client.post("/auth/logout")
     unauthorized = client.post("/admin/info/messages", json={"text": "Admin update"})
     assert unauthorized.status_code == 401
 

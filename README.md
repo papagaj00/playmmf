@@ -54,6 +54,8 @@ uvicorn app.main:app --reload
 # For a frontend served from another origin, configure CORS before starting
 # Uvicorn. Multiple origins can be comma-separated.
 # Windows PowerShell: $env:CORS_ORIGINS="http://localhost:5173"
+# Push notifications: set PUSH_VAPID_PUBLIC_KEY, PUSH_VAPID_PRIVATE_KEY, and PUSH_VAPID_SUBJECT on the backend.
+# The frontend receives the matching public key from /push/public-key.
 ```
 
 The API runs on `http://localhost:8000`. Interactive docs are at

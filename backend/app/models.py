@@ -47,6 +47,22 @@ class InfoMessage(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class PushSubscription(Base):
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (UniqueConstraint("user_id", "endpoint", name="uq_user_push_endpoint"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    endpoint: Mapped[str] = mapped_column(String(2000))
+    p256dh: Mapped[str] = mapped_column(String(255))
+    auth: Mapped[str] = mapped_column(String(255))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    user: Mapped["User"] = relationship(back_populates="push_subscriptions")
+
+
 class Team(Base):
     __tablename__ = "teams"
 
@@ -86,6 +102,9 @@ class User(Base):
     positions: Mapped[list["Position"]] = relationship(back_populates="user")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="user")
     sessions: Mapped[list["Session"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    push_subscriptions: Mapped[list["PushSubscription"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
