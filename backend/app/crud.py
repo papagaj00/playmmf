@@ -3,6 +3,7 @@ import math
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
@@ -156,7 +157,7 @@ def notify_market_created(db: Session, market: models.Market) -> int:
     matchup = " vs ".join(outcome_names) if outcome_names else market.title
     body = matchup
     if market.scheduled_at:
-        body += f" · {market.scheduled_at.astimezone(timezone.utc).strftime('%d.%m. %H:%M')} UTC"
+        body += f" · {market.scheduled_at.astimezone(ZoneInfo('Europe/Prague')).strftime('%d.%m. %H:%M')}"
     payload = json.dumps({"title": "Nový zápas", "body": body, "market_id": market.id})
     sent = 0
     subscriptions = db.query(models.PushSubscription).filter_by(active=True).all()
