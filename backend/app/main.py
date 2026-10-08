@@ -308,6 +308,7 @@ def create_market(payload: schemas.MarketCreate, db: Session = Depends(get_db)):
             payload.scheduled_at,
             payload.team_ids,
             payload.stage,
+            payload.initial_probabilities,
         )
     except (crud.InvalidTrade, KeyError) as error:
         raise HTTPException(status_code=400, detail=str(error))

@@ -295,6 +295,34 @@ def test_market_can_be_created_from_team_ids():
     assert [outcome["name"] for outcome in response.json()["outcomes"]] == TEAM_NAMES[:2]
 
 
+def test_market_custom_opening_probabilities_seed_prices():
+    response = client.post(
+        "/markets",
+        json={
+            "title": "Opening odds market",
+            "b": 5000,
+            "outcome_names": ["A", "B"],
+            "initial_probabilities": [70, 30],
+        },
+        headers=ADMIN_HEADERS,
+    )
+    assert response.status_code == 200
+    prices = [outcome["price"] for outcome in response.json()["outcomes"]]
+    assert prices == pytest.approx([0.7, 0.3])
+
+    invalid = client.post(
+        "/markets",
+        json={
+            "title": "Invalid odds market",
+            "b": 5000,
+            "outcome_names": ["A", "B"],
+            "initial_probabilities": [70, 20],
+        },
+        headers=ADMIN_HEADERS,
+    )
+    assert invalid.status_code == 400
+
+
 def test_market_schedule_is_persisted():
     scheduled_at = "2026-10-05T18:30:00+00:00"
     response = client.post(

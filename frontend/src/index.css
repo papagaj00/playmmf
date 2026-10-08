@@ -1472,6 +1472,28 @@ select {
     flex: 1;
 }
 
+.probability-input-row {
+    align-items: center;
+    min-height: 48px;
+}
+
+.probability-input-row > span:first-child {
+    flex: 1;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.probability-input-row > input {
+    flex: 0 0 90px;
+}
+
+.probability-input-row > span:last-child {
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+}
+
 .admin-form-actions {
     display: flex;
     justify-content: flex-end;

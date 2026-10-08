@@ -105,6 +105,7 @@ class MarketCreate(BaseModel):
     scheduled_at: datetime | None = None
     outcome_names: list[str] = Field(min_length=2)
     team_ids: list[int] | None = None
+    initial_probabilities: list[float] | None = None
 
 
 class OutcomeOut(BaseModel):

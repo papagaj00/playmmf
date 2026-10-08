@@ -7,6 +7,7 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
   const [stage, setStage] = useState("group");
   const [b, setB] = useState(10000);
   const [teamIds, setTeamIds] = useState(["", ""]);
+  const [initialProbabilities, setInitialProbabilities] = useState([50, 50]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
   const [points, setPoints] = useState(0);
@@ -93,18 +94,26 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
 
   function addOutcome() {
     setTeamIds([...teamIds, ""]);
+    setInitialProbabilities([...initialProbabilities, 0]);
   }
 
   function removeOutcome(i) {
     setTeamIds(teamIds.filter((_, idx) => idx !== i));
+    setInitialProbabilities(initialProbabilities.filter((_, idx) => idx !== i));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     const selectedTeamIds = teamIds.map((id) => Number(id)).filter(Boolean);
     const names = selectedTeamIds.map((id) => teams.find((team) => team.id === id)?.name).filter(Boolean);
+    const probabilities = initialProbabilities.map(Number);
+    const probabilityTotal = probabilities.reduce((total, value) => total + value, 0);
     if (!scheduledAt || selectedTeamIds.length < 2 || new Set(selectedTeamIds).size !== selectedTeamIds.length) {
       setMessage({ type: "error", text: "Zadej datum a čas zápasu a vyber alespoň 2 různé týmy." });
+      return;
+    }
+    if (probabilities.length !== selectedTeamIds.length || probabilities.some((value) => !Number.isFinite(value) || value <= 0) || Math.abs(probabilityTotal - 100) > 0.01) {
+      setMessage({ type: "error", text: `Pravděpodobnosti musí být kladné a mít součet 100 % (aktuálně ${probabilityTotal.toFixed(1)} %).` });
       return;
     }
     setBusy(true);
@@ -117,6 +126,7 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
           stage,
           outcome_names: names,
           team_ids: selectedTeamIds,
+          initial_probabilities: probabilities,
           scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
         },
       );
@@ -125,6 +135,7 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
       setScheduledAt("");
       setStage("group");
       setTeamIds(["", ""]);
+      setInitialProbabilities([50, 50]);
       onMarketCreated();
     } catch (err) {
       setMessage({ type: "error", text: err.message });
@@ -192,6 +203,23 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
           <button type="button" className="btn-small" onClick={addOutcome}>
             + Přidat výsledek
           </button>
+
+          <label>Počáteční pravděpodobnosti (%)</label>
+          {teamIds.map((teamId, i) => (
+            <div className="outcome-input-row probability-input-row" key={`probability-${i}`}>
+              <span>{teams.find((team) => String(team.id) === teamId)?.name || `Výsledek ${i + 1}`}</span>
+              <input
+                type="number"
+                min="0.01"
+                max="99.99"
+                step="0.01"
+                value={initialProbabilities[i] ?? ""}
+                onChange={(e) => setInitialProbabilities(initialProbabilities.map((value, index) => index === i ? e.target.value : value))}
+                aria-label={`Pravděpodobnost výsledku ${i + 1} v procentech`}
+              />
+              <span>%</span>
+            </div>
+          ))}
 
           {message && <div className={`trade-message ${message.type}`} style={{ marginTop: 12 }}>{message.text}</div>}
 

@@ -466,6 +466,7 @@ def create_market(
     scheduled_at: datetime | None = None,
     team_ids: list[int] | None = None,
     stage: str = "group",
+    initial_probabilities: list[float] | None = None,
 ) -> models.Market:
     if team_ids:
         teams = [db.get(models.Team, team_id) for team_id in team_ids]
@@ -477,6 +478,15 @@ def create_market(
         teams = [None] * len(outcome_names)
         if not title.strip():
             raise InvalidTrade("Zadej název zápasu nebo vyber týmy.")
+    if initial_probabilities is None:
+        initial_probabilities = [100 / len(outcome_names)] * len(outcome_names)
+    if len(initial_probabilities) != len(outcome_names):
+        raise InvalidTrade("Zadej pravděpodobnost pro každý výsledek.")
+    if any(not math.isfinite(probability) or probability <= 0 for probability in initial_probabilities):
+        raise InvalidTrade("Pravděpodnosti musí být kladná čísla.")
+    if not math.isclose(sum(initial_probabilities), 100, abs_tol=0.01):
+        raise InvalidTrade("Pravděpodobnosti musí mít součet 100 %.")
+
     market = models.Market(
         title=title,
         description=description,
@@ -486,8 +496,15 @@ def create_market(
     )
     db.add(market)
     db.flush()
-    for name, team in zip(outcome_names, teams):
-        db.add(models.Outcome(market_id=market.id, name=name, team_id=team.id if team else None, quantity=b))
+    for name, team, probability in zip(outcome_names, teams, initial_probabilities):
+        db.add(
+            models.Outcome(
+                market_id=market.id,
+                name=name,
+                team_id=team.id if team else None,
+                quantity=b * probability / 100,
+            )
+        )
     db.commit()
     db.refresh(market)
     return market
