@@ -64,6 +64,9 @@ export const api = {
   getUser: (username) => request(`/users/${encodeURIComponent(username)}`),
   getPositions: (username) => request(`/users/${encodeURIComponent(username)}/positions`),
   getTransactions: (username) => request(`/users/${encodeURIComponent(username)}/transactions`),
+  getGuesses: (username) => request(`/users/${encodeURIComponent(username)}/guesses`),
+  saveGuess: (marketId, first, second) =>
+    request(`/markets/${marketId}/guess`, { method: "PUT", body: { first, second } }),
   verifyAdmin: () => request("/admin/verify"),
   setMaintenance: (maintenance) =>
     request("/admin/maintenance", {

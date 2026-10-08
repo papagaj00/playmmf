@@ -13,6 +13,7 @@ STARTING_BALANCE = 10000.0
 MIN_TRADE_SHARES = 1.0
 MIN_TRADE_AMOUNT = 0.01
 MIN_WAGER_AMOUNT = 100.0
+SCORE_GUESS_REWARD = 5000
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "prokop_jan@gymbn.cz").strip().casefold()
 TEAM_NAMES = [
     "Gladiators 4B (A)", "Gladiators 4B (B)", "8A8", "FC Gooners 4A",
@@ -67,6 +68,10 @@ class InvalidBalanceAdjustment(Exception):
 
 
 class ExistingMarketPosition(Exception):
+    pass
+
+
+class GuessClosed(Exception):
     pass
 
 
@@ -142,7 +147,7 @@ def remove_push_subscription(db: Session, user: models.User, endpoint: str) -> N
     db.commit()
 
 
-def notify_market_created(db: Session, market: models.Market) -> int:
+def _notify_push_subscribers(db: Session, notification: dict[str, str | int]) -> int:
     private_key = os.environ.get("PUSH_VAPID_PRIVATE_KEY")
     subject = os.environ.get("PUSH_VAPID_SUBJECT")
     if not private_key or not subject:
@@ -153,12 +158,7 @@ def notify_market_created(db: Session, market: models.Market) -> int:
     except ImportError:
         return 0
 
-    outcome_names = [outcome.name for outcome in market.outcomes]
-    matchup = " vs ".join(outcome_names) if outcome_names else market.title
-    body = matchup
-    if market.scheduled_at:
-        body += f" · {market.scheduled_at.astimezone(ZoneInfo('Europe/Prague')).strftime('%d.%m. %H:%M')}"
-    payload = json.dumps({"title": "Nový zápas", "body": body, "market_id": market.id})
+    payload = json.dumps(notification)
     sent = 0
     subscriptions = db.query(models.PushSubscription).filter_by(active=True).all()
     for subscription in subscriptions:
@@ -178,10 +178,31 @@ def notify_market_created(db: Session, market: models.Market) -> int:
             if response is not None and response.status_code in (404, 410):
                 subscription.active = False
         except Exception:
-            # Notification delivery must never roll back or hide a created market.
+            # Notification delivery must never roll back or hide a saved event.
             continue
     db.commit()
     return sent
+
+
+def notify_info_message(db: Session, message: models.InfoMessage) -> int:
+    body = message.text
+    if len(body) > 180:
+        body = body[:177].rstrip() + "..."
+    return _notify_push_subscribers(
+        db,
+        {"title": "Nová informace", "body": body, "info_message_id": message.id},
+    )
+
+
+def notify_market_created(db: Session, market: models.Market) -> int:
+    outcome_names = [outcome.name for outcome in market.outcomes]
+    matchup = " vs ".join(outcome_names) if outcome_names else market.title
+    body = matchup
+    if market.scheduled_at:
+        body += f" · {market.scheduled_at.astimezone(ZoneInfo('Europe/Prague')).strftime('%d.%m. %H:%M')}"
+    return _notify_push_subscribers(
+        db, {"title": "Nový zápas", "body": body, "market_id": market.id}
+    )
 
 
 def _validate_trade(shares: float, amount: float) -> None:
@@ -279,6 +300,7 @@ def factory_reset(db: Session) -> None:
     db.query(models.InfoMessage).delete(synchronize_session=False)
     db.query(models.Transaction).delete(synchronize_session=False)
     db.query(models.Position).delete(synchronize_session=False)
+    db.query(models.ScoreGuess).delete(synchronize_session=False)
     # Market.resolved_outcome_id and Outcome.market_id form a circular
     # foreign-key relationship, so clear the pointer before deleting outcomes.
     db.query(models.Market).update(
@@ -544,6 +566,9 @@ def get_market(db: Session, market_id: int) -> models.Market | None:
 
 def delete_market(db: Session, market: models.Market) -> None:
     outcome_ids = [outcome.id for outcome in market.outcomes]
+    db.query(models.ScoreGuess).filter(models.ScoreGuess.market_id == market.id).delete(
+        synchronize_session=False
+    )
     if outcome_ids:
         db.query(models.Transaction).filter(models.Transaction.outcome_id.in_(outcome_ids)).delete(
             synchronize_session=False
@@ -610,6 +635,57 @@ def set_market_status(db: Session, market: models.Market, status: models.MarketS
     db.commit()
     db.refresh(market)
     return market
+
+
+# ---------- Exact-score guesses ----------
+
+def save_score_guess(
+    db: Session, user: models.User, market: models.Market, first: int, second: int
+) -> models.ScoreGuess:
+    close_due_markets(db)
+    db.refresh(market)
+    if market.status != models.MarketStatus.OPEN or len(market.outcomes) != 2:
+        raise GuessClosed("Tipování přesného výsledku je pro tento zápas uzavřeno.")
+    guess = (
+        db.query(models.ScoreGuess)
+        .filter_by(user_id=user.id, market_id=market.id)
+        .first()
+    )
+    if guess is None:
+        guess = models.ScoreGuess(user_id=user.id, market_id=market.id, first=first, second=second)
+        db.add(guess)
+    else:
+        guess.first = first
+        guess.second = second
+    db.commit()
+    db.refresh(guess)
+    return guess
+
+
+def list_score_guesses(db: Session, user: models.User) -> list[models.ScoreGuess]:
+    return db.query(models.ScoreGuess).filter_by(user_id=user.id).all()
+
+
+def _settle_score_guesses(db: Session, market: models.Market, scores: list[int]) -> None:
+    """Pay the flat reward to every user who guessed the exact result."""
+    guesses = db.query(models.ScoreGuess).filter_by(market_id=market.id).all()
+    reward_outcome_id = market.outcomes[0].id
+    for guess in guesses:
+        guess.won = [guess.first, guess.second] == scores
+        if not guess.won:
+            continue
+        user = db.get(models.User, guess.user_id)
+        user.balance = round(user.balance + SCORE_GUESS_REWARD)
+        db.add(
+            models.Transaction(
+                user_id=user.id,
+                outcome_id=reward_outcome_id,
+                type=models.TransactionType.GRANT,
+                shares=0,
+                amount=-SCORE_GUESS_REWARD,
+                balance_after=user.balance,
+            )
+        )
 
 
 # ---------- Trading ----------
@@ -850,6 +926,8 @@ def resolve_market(
     market.resolved_outcome_id = winning_outcome_id
     market.resolved_as_draw = draw
     market.result = result
+    if result and re.fullmatch(r"\d+:\d+", result):
+        _settle_score_guesses(db, market, [int(part) for part in result.split(":")])
     db.commit()
     db.refresh(market)
     return market

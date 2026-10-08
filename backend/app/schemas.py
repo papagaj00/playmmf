@@ -178,6 +178,19 @@ class MarketResolve(BaseModel):
     result: str = Field(pattern=r"^\d+\s*:\s*\d+$")
 
 
+class ScoreGuessIn(BaseModel):
+    first: int = Field(ge=0, le=99)
+    second: int = Field(ge=0, le=99)
+
+
+class ScoreGuessOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    market_id: int
+    first: int
+    second: int
+    won: bool | None
+
+
 class BalanceAdjustmentRequest(BaseModel):
     points: float = Field(description="Positive adds points, negative removes points")
     user_id: int | None = Field(default=None, gt=0)

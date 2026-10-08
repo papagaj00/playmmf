@@ -9,6 +9,8 @@ import AdminView from "./components/AdminView";
 import BottomNav from "./components/BottomNav";
 import TournamentView from "./components/TournamentView";
 
+const TAB_ORDER = ["markets", "portfolio", "leaderboard", "tournament", "admin"];
+
 export default function App() {
   const [username, setUsername] = useState("");
   const [adminVerified, setAdminVerified] = useState(false);
@@ -20,10 +22,12 @@ export default function App() {
   const [positions, setPositions] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [rosters, setRosters] = useState([]);
+  const [guesses, setGuesses] = useState([]);
   const [error, setError] = useState(null);
   const [initialDataLoading, setInitialDataLoading] = useState(true);
   const [maintenance, setMaintenance] = useState(false);
   const refreshFailures = useRef(0);
+  const swipeStart = useRef(null);
 
   useEffect(() => {
     api.me()
@@ -45,13 +49,14 @@ export default function App() {
         setError(null);
         return;
       }
-      const [u, m, lb, pos, tx, rosterData] = await Promise.all([
+      const [u, m, lb, pos, tx, rosterData, guessData] = await Promise.all([
         api.getUser(username),
         api.listMarkets(),
         api.getLeaderboard(),
         api.getPositions(username),
         api.getTransactions(username),
         api.getTeamRosters(),
+        api.getGuesses(username),
       ]);
       setUser(u);
       setMarkets(m);
@@ -59,6 +64,7 @@ export default function App() {
       setPositions(pos);
       setTransactions(tx);
       setRosters(rosterData);
+      setGuesses(guessData);
       setError(null);
       refreshFailures.current = 0;
     } catch (err) {
@@ -108,11 +114,33 @@ export default function App() {
 
   const isAdmin = adminVerified;
   const canUseApp = !maintenance || isAdmin;
+  const handleTouchStart = (event) => {
+    if (event.touches.length !== 1 || event.target.closest?.("button, a, input, textarea, select, [data-no-tab-swipe]")) {
+      swipeStart.current = null;
+      return;
+    }
+    const { clientX, clientY } = event.touches[0];
+    swipeStart.current = { x: clientX, y: clientY };
+  };
+  const handleTouchEnd = (event) => {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start || !canUseApp) return;
+
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 60 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.3) return;
+
+    const tabs = TAB_ORDER.filter((id) => id !== "admin" || isAdmin);
+    const nextIndex = tabs.indexOf(tab) + (deltaX < 0 ? 1 : -1);
+    if (nextIndex >= 0 && nextIndex < tabs.length) setTab(tabs[nextIndex]);
+  };
 
   return (
     <div className="app">
       <TopBar username={username} balance={user ? user.balance : 0} onLogout={handleLogout} isAdmin={isAdmin} />
-      <div className="main">
+      <div className="main" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchCancel={() => { swipeStart.current = null; }}>
         {error && (
           <div className="trade-message error" style={{ marginBottom: 20 }}>
             {error} — běží backend na očekávané adrese?
@@ -132,6 +160,7 @@ export default function App() {
             username={username}
             balance={user ? user.balance : 0}
             positions={positions}
+            guesses={guesses}
             loading={initialDataLoading}
             onChanged={refreshAll}
             isAdmin={isAdmin}

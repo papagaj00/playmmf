@@ -180,6 +180,22 @@ class Position(Base):
     outcome: Mapped["Outcome"] = relationship(back_populates="positions")
 
 
+class ScoreGuess(Base):
+    """A user's free exact-score guess; first/second follow the admin's result order."""
+
+    __tablename__ = "score_guesses"
+    __table_args__ = (UniqueConstraint("user_id", "market_id", name="uq_user_market_guess"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    market_id: Mapped[int] = mapped_column(ForeignKey("markets.id"), index=True)
+    first: Mapped[int] = mapped_column(Integer)
+    second: Mapped[int] = mapped_column(Integer)
+    won: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
 class Transaction(Base):
     """Audit trail: every grant, trade, and payout."""
 

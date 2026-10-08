@@ -155,6 +155,29 @@ def get_user_transactions(username: str, db: Session = Depends(get_db), user: mo
     return crud.get_transaction_history(db, user)
 
 
+@app.get("/users/{username}/guesses", response_model=list[schemas.ScoreGuessOut], dependencies=[Depends(require_app_open_or_admin)])
+def get_user_guesses(username: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+    if username != user.username:
+        raise HTTPException(status_code=403, detail="K tomuto účtu nemáš přístup.")
+    return crud.list_score_guesses(db, user)
+
+
+@app.put("/markets/{market_id}/guess", response_model=schemas.ScoreGuessOut, dependencies=[Depends(require_app_open)])
+def save_score_guess(
+    market_id: int,
+    payload: schemas.ScoreGuessIn,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
+    market = crud.get_market(db, market_id)
+    if not market:
+        raise HTTPException(status_code=404, detail="Zápas nebyl nalezen.")
+    try:
+        return crud.save_score_guess(db, user, market, payload.first, payload.second)
+    except crud.GuessClosed as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
 @app.get("/leaderboard", response_model=list[schemas.LeaderboardEntry], dependencies=[Depends(require_app_open_or_admin)])
 def leaderboard(db: Session = Depends(get_db)):
     return crud.get_leaderboard(db)
@@ -207,7 +230,9 @@ def push_unsubscribe(
 
 @app.post("/admin/info/messages", response_model=schemas.InfoMessageOut, dependencies=[Depends(require_admin)])
 def create_info_message(payload: schemas.InfoMessageCreate, db: Session = Depends(get_db)):
-    return crud.create_info_message(db, payload.text)
+    message = crud.create_info_message(db, payload.text)
+    crud.notify_info_message(db, message)
+    return message
 
 
 @app.post("/admin/maintenance", response_model=schemas.SystemStatus, dependencies=[Depends(require_admin)])

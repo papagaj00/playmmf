@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { TEAM_LOGOS } from "../teamLogos";
 import TradeSheet from "./TradeSheet";
+import ScoreGuess from "./ScoreGuess";
 import { formatPoints } from "../format";
 import LoadingState from "./LoadingState";
 
@@ -19,7 +20,7 @@ function formatMatchDate(value) {
   }).format(new Date(value));
 }
 
-export default function MarketCard({ market, username, balance, positions, onChanged, isAdmin }) {
+export default function MarketCard({ market, username, balance, positions, guess, onChanged, isAdmin }) {
   const [adminBusy, setAdminBusy] = useState(false);
   const [selectedOutcomeId, setSelectedOutcomeId] = useState(null);
   const [amount, setAmount] = useState(100);
@@ -216,6 +217,16 @@ export default function MarketCard({ market, username, balance, positions, onCha
           </button>
         ))}
       </div>
+
+      {orderedOutcomes.length === 2 && (
+        <ScoreGuess
+          market={market}
+          left={orderedOutcomes[0]}
+          right={orderedOutcomes[1]}
+          guess={guess}
+          onSaved={onChanged}
+        />
+      )}
 
       {tradable && selectedOutcome && (
         <TradeSheet

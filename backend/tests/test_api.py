@@ -1,5 +1,8 @@
+import json
 import os
+import sys
 from datetime import datetime, timedelta, timezone
+from types import ModuleType
 
 os.environ["ADMIN_EMAIL"] = "admin@gbn.cz"
 
@@ -235,6 +238,80 @@ def test_balance_adjustments_are_stored_as_whole_points():
 
 def test_info_messages_are_visible_to_players_and_writable_only_by_admin():
     client.post("/auth/logout")
+
+
+def test_info_message_notifies_active_push_subscriptions(monkeypatch):
+    monkeypatch.setenv("PUSH_VAPID_PRIVATE_KEY", "test-private-key")
+    monkeypatch.setenv("PUSH_VAPID_SUBJECT", "mailto:test@example.com")
+    attempted_endpoints = []
+    delivered_payloads = []
+
+    class FakeWebPushException(Exception):
+        pass
+
+    def fake_webpush(subscription_info, data, **_kwargs):
+        endpoint = subscription_info["endpoint"]
+        attempted_endpoints.append(endpoint)
+        if endpoint.endswith("delivery-failure"):
+            raise RuntimeError("push service unavailable")
+        delivered_payloads.append(json.loads(data))
+
+    push_module = ModuleType("pywebpush")
+    push_module.WebPushException = FakeWebPushException
+    push_module.webpush = fake_webpush
+    monkeypatch.setitem(sys.modules, "pywebpush", push_module)
+
+    def subscribe(username, endpoint):
+        registration = register(username).json()
+        headers = {"Authorization": f"Bearer {registration['token']}"}
+        subscription = {
+            "endpoint": f"https://push.example/{endpoint}",
+            "p256dh": "public-key",
+            "auth": "auth-secret",
+        }
+        response = client.post("/push/subscribe", json=subscription, headers=headers)
+        assert response.status_code == 200
+        return headers, subscription
+
+    subscribe("info-push-active", "active")
+    subscribe("info-push-failing", "delivery-failure")
+    inactive_headers, inactive_subscription = subscribe("info-push-inactive", "inactive")
+    disabled = client.request(
+        "DELETE", "/push/subscribe", json=inactive_subscription, headers=inactive_headers
+    )
+    assert disabled.status_code == 200
+
+    created = client.post(
+        "/admin/info/messages",
+        json={"text": "Změna rozpisu zápasů"},
+        headers=ADMIN_HEADERS,
+    )
+
+    assert created.status_code == 200
+    assert created.json()["text"] == "Změna rozpisu zápasů"
+    assert set(attempted_endpoints) == {
+        "https://push.example/active",
+        "https://push.example/delivery-failure",
+    }
+    assert delivered_payloads == [{
+        "title": "Nová informace",
+        "body": "Změna rozpisu zápasů",
+        "info_message_id": created.json()["id"],
+    }]
+    listed = client.get("/info/messages", headers=ADMIN_HEADERS)
+    assert listed.status_code == 200
+    assert listed.json()[0]["id"] == created.json()["id"]
+    with TestSessionLocal() as db:
+        db.query(models.PushSubscription).filter(
+            models.PushSubscription.endpoint.in_(
+                [
+                    "https://push.example/active",
+                    "https://push.example/delivery-failure",
+                    "https://push.example/inactive",
+                ]
+            )
+        ).delete(synchronize_session=False)
+        db.commit()
 
 
 def test_push_subscription_is_owned_by_authenticated_user():
@@ -917,6 +994,79 @@ def test_maintenance_break_blocks_player_routes_but_admin_can_toggle_it():
     )
     assert disabled.status_code == 200
     assert client.get("/markets").status_code == 200
+
+
+def test_score_guess_can_be_updated_and_only_exact_score_wins_reward():
+    market_response = client.post(
+        "/markets",
+        json={"title": "Score guess match", "b": 20, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    )
+    assert market_response.status_code == 200
+    market_id = market_response.json()["id"]
+
+    exact_user = register("score-exact-player").json()
+    miss_user = register("score-miss-player").json()
+    exact_headers = {"Authorization": f"Bearer {exact_user['token']}"}
+    miss_headers = {"Authorization": f"Bearer {miss_user['token']}"}
+
+    first_guess = client.put(
+        f"/markets/{market_id}/guess",
+        json={"first": 0, "second": 0},
+        headers=exact_headers,
+    )
+    assert first_guess.status_code == 200
+    updated_guess = client.put(
+        f"/markets/{market_id}/guess",
+        json={"first": 5, "second": 4},
+        headers=exact_headers,
+    )
+    assert updated_guess.status_code == 200
+    assert updated_guess.json()["first"] == 5
+    assert client.put(
+        f"/markets/{market_id}/guess",
+        json={"first": 5, "second": 3},
+        headers=miss_headers,
+    ).status_code == 200
+    assert client.put(
+        f"/markets/{market_id}/guess",
+        json={"first": -1, "second": 4},
+        headers=exact_headers,
+    ).status_code == 422
+
+    closed = client.post(
+        f"/markets/{market_id}/status?status=closed", headers=ADMIN_HEADERS
+    )
+    assert closed.status_code == 200
+    assert client.put(
+        f"/markets/{market_id}/guess",
+        json={"first": 5, "second": 4},
+        headers=exact_headers,
+    ).status_code == 400
+
+    resolved = client.post(
+        f"/markets/{market_id}/resolve",
+        json={"result": "5:4"},
+        headers=ADMIN_HEADERS,
+    )
+    assert resolved.status_code == 200
+    exact_balance = client.get("/users/score-exact-player", headers=exact_headers).json()["balance"]
+    miss_balance = client.get("/users/score-miss-player", headers=miss_headers).json()["balance"]
+    assert exact_balance == 15000
+    assert miss_balance == 10000
+
+    exact_guess = client.get("/users/score-exact-player/guesses", headers=exact_headers).json()[0]
+    miss_guess = client.get("/users/score-miss-player/guesses", headers=miss_headers).json()[0]
+    assert exact_guess["won"] is True
+    assert miss_guess["won"] is False
+
+    duplicate_resolution = client.post(
+        f"/markets/{market_id}/resolve",
+        json={"result": "5:4"},
+        headers=ADMIN_HEADERS,
+    )
+    assert duplicate_resolution.status_code == 400
+    assert client.get("/users/score-exact-player", headers=exact_headers).json()["balance"] == 15000
 
 
 def test_factory_reset_requires_admin_key_and_deletes_all_data():
