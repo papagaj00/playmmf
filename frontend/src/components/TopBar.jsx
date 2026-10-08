@@ -159,8 +159,8 @@ export default function TopBar({ username, balance, onLogout, isAdmin }) {
               localStorage.setItem(`gbn-push-prompt-dismissed:${username}`, "true");
               setPushPromptOpen(false);
             }}>×</button>
-            <strong>Chceš dostávat upozornění?</strong>
-            <p>Upozorníme tě, když admin vytvoří nový zápas.</p>
+            <strong>Upozornění na zápasy?</strong>
+            <p>Upozorníme tě, když se vytvoří nový zápas.</p>
             <button className="btn-small" type="button" onClick={togglePush} disabled={pushBusy}>
               <Bell size={14} /> {pushBusy ? "Nastavuji…" : "Povolit upozornění"}
             </button>
