@@ -247,11 +247,24 @@ def test_push_subscription_is_owned_by_authenticated_user():
     created = client.post("/push/subscribe", json=subscription)
     assert created.status_code == 200
     assert created.json()["enabled"] is False
-    assert client.get("/push/status").json()["enabled"] is False
+    with TestSessionLocal() as db:
+        first_id = db.query(models.PushSubscription).filter_by(endpoint=subscription["endpoint"]).one().id
+        assert db.query(models.PushSubscription).count() == 1
 
     removed = client.request("DELETE", "/push/subscribe", json=subscription)
     assert removed.status_code == 200
     assert removed.json()["enabled"] is False
+    with TestSessionLocal() as db:
+        row = db.query(models.PushSubscription).filter_by(id=first_id).one()
+        assert row.active is False
+        assert db.query(models.PushSubscription).count() == 1
+
+    reenabled = client.post("/push/subscribe", json=subscription)
+    assert reenabled.status_code == 200
+    with TestSessionLocal() as db:
+        row = db.query(models.PushSubscription).filter_by(id=first_id).one()
+        assert row.active is True
+        assert db.query(models.PushSubscription).count() == 1
     client.post("/auth/logout")
     unauthorized = client.post("/admin/info/messages", json={"text": "Admin update"})
     assert unauthorized.status_code == 401

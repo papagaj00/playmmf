@@ -116,7 +116,8 @@ def save_push_subscription(
 ) -> models.PushSubscription:
     subscription = (
         db.query(models.PushSubscription)
-        .filter_by(user_id=user.id, endpoint=endpoint)
+        .filter_by(user_id=user.id)
+        .order_by(models.PushSubscription.id.desc())
         .first()
     )
     if subscription is None:
@@ -134,8 +135,8 @@ def save_push_subscription(
 
 
 def remove_push_subscription(db: Session, user: models.User, endpoint: str) -> None:
-    db.query(models.PushSubscription).filter_by(user_id=user.id, endpoint=endpoint).delete(
-        synchronize_session=False
+    db.query(models.PushSubscription).filter_by(user_id=user.id).update(
+        {models.PushSubscription.active: False}, synchronize_session=False
     )
     db.commit()
 

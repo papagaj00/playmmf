@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app import auth, crud, models, schemas
-from app.database import Base, ensure_auth_columns, ensure_pool_columns, engine, get_db
+from app.database import Base, ensure_auth_columns, ensure_pool_columns, ensure_push_subscriptions, engine, get_db
 
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "prokop_jan@gymbn.cz").strip().casefold()
 CORS_ORIGINS = [
@@ -17,6 +17,7 @@ CORS_ORIGINS = [
 Base.metadata.create_all(bind=engine)
 ensure_auth_columns()
 ensure_pool_columns()
+ensure_push_subscriptions()
 
 app = FastAPI(title="playmmf")
 

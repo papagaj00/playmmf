@@ -49,6 +49,20 @@ def ensure_auth_columns() -> None:
     _execute_migration("UPDATE users SET balance = ROUND(balance)")
 
 
+def ensure_push_subscriptions() -> None:
+    """Collapse legacy duplicate subscriptions before enforcing one per user."""
+    if "push_subscriptions" not in inspect(engine).get_table_names():
+        return
+    _execute_migration(
+        "DELETE FROM push_subscriptions "
+        "WHERE id NOT IN (SELECT MAX(id) FROM push_subscriptions GROUP BY user_id)"
+    )
+    _execute_migration(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_push_subscription_user "
+        "ON push_subscriptions (user_id)"
+    )
+
+
 def ensure_pool_columns() -> None:
     """Add pool-betting fields without deleting legacy LMSR data."""
     position_columns = {column["name"] for column in inspect(engine).get_columns("positions")}
