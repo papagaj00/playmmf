@@ -411,12 +411,12 @@ def _team_goals_from_matches(db: Session) -> dict[int, int]:
     for market in markets:
         if len(market.outcomes) != 2 or not re.fullmatch(r"\s*\d+\s*:\s*\d+\s*", market.result or ""):
             continue
-        first, second = market.outcomes
+        first, second = sorted(market.outcomes, key=lambda outcome: outcome.id)
         if first.team_id is None or second.team_id is None or first.team_id == second.team_id:
             continue
         first_goals, second_goals = (int(value.strip()) for value in market.result.split(":"))
-        team_goals[first.team_id] = team_goals.get(first.team_id, 0) + second_goals
-        team_goals[second.team_id] = team_goals.get(second.team_id, 0) + first_goals
+        team_goals[first.team_id] = team_goals.get(first.team_id, 0) + first_goals
+        team_goals[second.team_id] = team_goals.get(second.team_id, 0) + second_goals
     return team_goals
 
 

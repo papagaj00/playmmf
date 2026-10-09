@@ -193,17 +193,17 @@ def test_team_roster_admin_crud_and_goal_consistency():
     )
     assert resolved.status_code == 200
 
-    roster = next(
-        item for item in client.get("/teams/rosters", headers=ADMIN_HEADERS).json()
-        if item["id"] == team_a["id"]
-    )
-    assert roster["team_goals"] == 2
+    rosters = client.get("/teams/rosters", headers=ADMIN_HEADERS).json()
+    roster = next(item for item in rosters if item["id"] == team_a["id"])
+    opponent_roster = next(item for item in rosters if item["id"] == team_b["id"])
+    assert roster["team_goals"] == 5
+    assert opponent_roster["team_goals"] == 2
     assert roster["roster_goals"] == 4
     assert roster["goals_status"] == "mismatch"
 
     updated = client.patch(
         f"/admin/teams/{team_a['id']}/players/{player['id']}",
-        json={"name": "Test střelec", "goals": 2},
+        json={"name": "Test střelec", "goals": 5},
         headers=ADMIN_HEADERS,
     )
     assert updated.status_code == 200
