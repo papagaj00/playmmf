@@ -12,7 +12,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import database, main, models
+from app import crud, database, main, models
 
 # Point the whole app at a fresh in-memory SQLite DB for the test session,
 # so tests never touch tournament.db and never see leftover state.
@@ -72,6 +72,32 @@ def register(username: str, domain: str = "gbn.cz"):
 def test_health():
     r = client.get("/health")
     assert r.status_code == 200
+
+
+def test_resolve_market_by_result_uses_outcome_id_order(monkeypatch):
+    first = models.Outcome(id=1, name="Team A")
+    second = models.Outcome(id=2, name="Team B")
+    market = models.Market(outcomes=[second, first])
+    resolved = {}
+
+    def capture_resolution(db, current_market, winning_outcome_id, draw, result):
+        resolved.update(
+            market=current_market,
+            winning_outcome_id=winning_outcome_id,
+            draw=draw,
+            result=result,
+        )
+        return current_market
+
+    monkeypatch.setattr(crud, "resolve_market", capture_resolution)
+    crud.resolve_market_by_result(None, market, "3:1")
+
+    assert resolved == {
+        "market": market,
+        "winning_outcome_id": 1,
+        "draw": False,
+        "result": "3:1",
+    }
 
 
 def test_create_user_grants_starting_balance():

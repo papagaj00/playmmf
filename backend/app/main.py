@@ -52,7 +52,7 @@ def _market_to_out(market: models.Market) -> schemas.MarketOut:
             schemas.OutcomeOut(
                 id=o.id, team_id=o.team_id, name=o.name, quantity=o.quantity, price=price_map[o.id]
             )
-            for o in market.outcomes
+            for o in sorted(market.outcomes, key=lambda outcome: outcome.id)
         ],
     )
 

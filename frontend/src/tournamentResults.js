@@ -15,8 +15,9 @@ export function getGroupResults(markets, teamNames) {
         .filter((market) => market.stage === "group" && market.status === "resolved")
         .forEach((market) => {
             if (market.outcomes.length !== 2) return;
-            const first = market.outcomes.find((outcome) => teams[outcome.name]);
-            const second = market.outcomes.find((outcome) => teams[outcome.name] && outcome !== first);
+            const orderedOutcomes = [...market.outcomes].sort((left, right) => left.id - right.id);
+            const first = orderedOutcomes.find((outcome) => teams[outcome.name]);
+            const second = orderedOutcomes.find((outcome) => teams[outcome.name] && outcome !== first);
             const score = parseScore(market.result);
             if (!first || !second || first.team_id === second.team_id || !score) return;
 

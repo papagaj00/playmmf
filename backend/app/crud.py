@@ -943,13 +943,14 @@ def resolve_market(
 def resolve_market_by_result(db: Session, market: models.Market, result: str) -> models.Market:
     if len(market.outcomes) != 2:
         raise InvalidTrade("Skóre ve formátu A:B je podporováno pro zápasy se dvěma výsledky.")
+    ordered_outcomes = sorted(market.outcomes, key=lambda outcome: outcome.id)
     scores = [int(part.strip()) for part in result.split(":")]
     if any(score < 0 for score in scores):
         raise InvalidTrade("Skóre nemůže být záporné.")
     normalized_result = f"{scores[0]}:{scores[1]}"
     if scores[0] == scores[1]:
         return resolve_market(db, market, None, True, normalized_result)
-    winner = market.outcomes[0].id if scores[0] > scores[1] else market.outcomes[1].id
+    winner = ordered_outcomes[0].id if scores[0] > scores[1] else ordered_outcomes[1].id
     return resolve_market(db, market, winner, False, normalized_result)
 
 
