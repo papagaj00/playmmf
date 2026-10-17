@@ -10,13 +10,13 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import auth, lmsr, models
+from app.roles import ADMIN_EMAILS, SHADOW_ACCOUNT_EMAIL
 
 STARTING_BALANCE = 10000.0
 MIN_TRADE_SHARES = 1.0
 MIN_TRADE_AMOUNT = 0.01
 MIN_WAGER_AMOUNT = 100.0
 SCORE_GUESS_REWARD = 5000
-ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", "prokop_jan@gymbn.cz").strip().casefold()
 TEAM_NAMES = [
     "Gladiators 4B (A)", "Gladiators 4B (B)", "8A8", "FC Gooners 4A",
     "FC Bumass 7A8", "3A", "FC Alpacas 2A", "FC Tortas 2B", "6B8",
@@ -245,7 +245,7 @@ def register_user(db: Session, email: str, username: str, password: str) -> tupl
         username=username,
         password_hash=auth.hash_password(password),
         balance=STARTING_BALANCE,
-        is_admin=email == ADMIN_EMAIL,
+        is_admin=email.casefold() in ADMIN_EMAILS,
     )
     db.add(user)
     db.flush()
@@ -371,7 +371,11 @@ def set_user_banned(db: Session, email: str, banned: bool) -> models.User:
 
 
 def get_leaderboard(db: Session) -> list[dict]:
-    users = db.query(models.User).all()
+    users = [
+        user
+        for user in db.query(models.User).all()
+        if (user.email or "").casefold() != SHADOW_ACCOUNT_EMAIL
+    ]
     board = []
     for user in users:
         wagered_value = sum(

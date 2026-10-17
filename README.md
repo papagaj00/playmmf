@@ -46,10 +46,13 @@ python -m venv .venv   # or use your existing shared venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# ADMIN_EMAIL identifies the single account with admin privileges.
+# ADMIN_EMAIL identifies the primary account with admin privileges.
 # It defaults to prokop_jan@gymbn.cz.
 $env:ADMIN_EMAIL="prokop_jan@gymbn.cz"
 uvicorn app.main:app --reload
+
+# prokop_jan@gbn.cz is also an admin shadow account: it can bet and win,
+# but it is omitted from the leaderboard.
 
 # For a frontend served from another origin, configure CORS before starting
 # Uvicorn. Multiple origins can be comma-separated.
