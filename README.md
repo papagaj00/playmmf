@@ -46,13 +46,7 @@ python -m venv .venv   # or use your existing shared venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# ADMIN_EMAIL identifies the primary account with admin privileges.
-# It defaults to prokop_jan@gymbn.cz.
-$env:ADMIN_EMAIL="prokop_jan@gymbn.cz"
 uvicorn app.main:app --reload
-
-# prokop_jan@gbn.cz is also an admin shadow account: it can bet and win,
-# but it is omitted from the leaderboard.
 
 # For a frontend served from another origin, configure CORS before starting
 # Uvicorn. Multiple origins can be comma-separated.
@@ -95,8 +89,10 @@ deployed), copy `.env.example` to `.env` and set `VITE_API_URL`.
 
 1. Anyone opens the frontend and registers with a school email, username,
   and password. Only `@gbn.cz` and `@gymbn.cz` addresses are accepted.
-2. The account registered with `ADMIN_EMAIL` can open the Admin tab and create
-  matches (title + possible results + an initial pool value `b`).
+2. Accounts with `users.is_admin = TRUE` can open the Admin tab and create
+  matches (title + possible results + an initial pool value `b`). Accounts
+  with `users.is_shadow = TRUE` are omitted from the leaderboard but remain
+  available in the Admin tab's balance-adjustment selector.
 3. The Admin tab can grant or remove points from every player, ban or unban a
   player by school email, permanently delete matches, and perform a factory
   reset. Balance changes are recorded in transaction history; balance removal
@@ -119,9 +115,10 @@ pool model, so choose `b` with the tournament's total possible payouts in mind.
 
 ## Notes / things to decide before running it for real
 
-- **Admin account**: the email in `ADMIN_EMAIL` is the only account granted
-  admin privileges. The backend checks both the authenticated session and the
-  exact email, so changing a browser flag cannot grant access.
+- **Account permissions**: `users.is_admin` controls admin access, and
+  `users.is_shadow` controls leaderboard visibility. Set these flags directly
+  in the database; registration does not grant either permission by email. For
+  example: `UPDATE users SET is_admin = TRUE, is_shadow = TRUE WHERE email = 'account@gbn.cz';`
 - **Existing database**: the new account fields are added at startup, but
   existing username-only accounts cannot log in. The ban field and pool-bet
   fields are added automatically at startup. Existing LMSR positions are

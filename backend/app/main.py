@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from app import auth, crud, models, schemas
 from app.database import Base, ensure_auth_columns, ensure_pool_columns, ensure_push_subscriptions, engine, get_db
-from app.roles import ADMIN_EMAILS
 
 CORS_ORIGINS = [
     origin.strip()
@@ -80,7 +79,7 @@ def get_current_user(
 
 
 def require_admin(user: models.User = Depends(get_current_user)) -> models.User:
-    if not user.is_admin or user.email.casefold() not in ADMIN_EMAILS:
+    if not user.is_admin:
         raise HTTPException(status_code=403, detail="Tento účet nemá administrátorská oprávnění.")
     return user
 

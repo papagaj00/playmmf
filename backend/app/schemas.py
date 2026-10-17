@@ -43,6 +43,7 @@ class UserOut(BaseModel):
     username: str
     balance: float
     is_admin: bool
+    is_shadow: bool
     is_banned: bool
 
 

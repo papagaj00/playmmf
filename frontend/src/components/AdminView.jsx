@@ -238,7 +238,7 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
               <option value="">Všichni hráči</option>
               {users.map((user) => (
                 <option key={user.id} value={user.id}>
-                  {user.username} {user.is_banned ? "(zablokován)" : ""}
+                  {user.username} {user.is_shadow ? "(shadow) " : ""}{user.is_banned ? "(zablokován)" : ""}
                 </option>
               ))}
             </select>

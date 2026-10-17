@@ -1,19 +1,16 @@
 import json
-import os
 import sys
 from datetime import datetime, timedelta, timezone
 from math import sqrt
 from types import ModuleType
 
-os.environ["ADMIN_EMAIL"] = "admin@gbn.cz"
-
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app import crud, database, main, models, roles
+from app import crud, database, main, models
 
 # Point the whole app at a fresh in-memory SQLite DB for the test session,
 # so tests never touch tournament.db and never see leftover state.
@@ -56,6 +53,11 @@ admin_registration = client.post(
         "password": "spravneheslo",
     },
 )
+assert admin_registration.json()["user"]["is_admin"] is False
+with TestSessionLocal() as admin_session:
+    test_admin = admin_session.get(models.User, admin_registration.json()["user"]["id"])
+    test_admin.is_admin = True
+    admin_session.commit()
 ADMIN_HEADERS = {"Authorization": f"Bearer {admin_registration.json()['token']}"}
 
 
@@ -967,30 +969,49 @@ def test_cannot_wager_on_resolved_market():
     assert r.status_code == 400
 
 
-def test_admin_email_verification():
-    assert client.get("/admin/verify").status_code == 403
+def test_admin_flag_verification():
+    regular_response = register("admin-flag-regular").json()
+    regular_headers = {"Authorization": f"Bearer {regular_response['token']}"}
+    assert client.get("/admin/verify", headers=regular_headers).status_code == 403
     assert client.get("/admin/verify", headers={"Authorization": "Bearer wrong"}).status_code == 401
     response = client.get("/admin/verify", headers=ADMIN_HEADERS)
     assert response.status_code == 200
     assert response.json() == {"valid": True}
 
 
-def test_shadow_account_is_admin_hidden_and_can_win():
-    response = client.post(
-        "/auth/register",
-        json={
-            "email": roles.SHADOW_ACCOUNT_EMAIL,
-            "username": "shadow-account",
-            "password": "spravneheslo",
-        },
-    )
+def test_database_flags_control_shadow_admin_visibility_and_winnings():
+    response = register("shadow-account")
     assert response.status_code == 200
-    assert response.json()["user"]["is_admin"] is True
+    assert response.json()["user"]["is_admin"] is False
     shadow_headers = {"Authorization": f"Bearer {response.json()['token']}"}
+    assert client.get("/admin/verify", headers=shadow_headers).status_code == 403
+
+    with TestSessionLocal() as db:
+        shadow_user = db.get(models.User, response.json()["user"]["id"])
+        shadow_user.is_admin = True
+        shadow_user.is_shadow = True
+        db.commit()
+
     assert client.get("/admin/verify", headers=shadow_headers).status_code == 200
     assert "shadow-account" not in {
         row["username"] for row in client.get("/leaderboard").json()
     }
+    listed_shadow = next(
+        user
+        for user in client.get("/admin/users", headers=ADMIN_HEADERS).json()
+        if user["id"] == response.json()["user"]["id"]
+    )
+    assert listed_shadow["is_shadow"] is True
+
+    adjustment = client.post(
+        "/admin/balance-adjustment",
+        json={"points": 500, "user_id": listed_shadow["id"]},
+        headers=ADMIN_HEADERS,
+    )
+    assert adjustment.status_code == 200
+    assert adjustment.json()["updated_users"] == 1
+    with TestSessionLocal() as db:
+        assert db.get(models.User, listed_shadow["id"]).balance == pytest.approx(10500)
 
     market = client.post(
         "/markets",
@@ -1019,35 +1040,49 @@ def test_shadow_account_is_admin_hidden_and_can_win():
     )
     assert trade["won"] is True
     assert trade["winnings"] == pytest.approx(200)
-    assert "shadow-account" not in {
-        row["username"] for row in client.get("/leaderboard").json()
-    }
+    assert "shadow-account" not in {row["username"] for row in client.get("/leaderboard").json()}
+
+    with TestSessionLocal() as db:
+        shadow_user = db.get(models.User, response.json()["user"]["id"])
+        shadow_user.is_admin = False
+        shadow_user.is_shadow = False
+        db.commit()
+    assert client.get("/admin/verify", headers=shadow_headers).status_code == 403
+    assert "shadow-account" in {row["username"] for row in client.get("/leaderboard").json()}
 
 
-def test_startup_promotes_existing_shadow_account(monkeypatch):
+def test_startup_adds_shadow_flag_without_changing_admin_flags(monkeypatch):
     migration_engine = create_engine(
         "sqlite:///:memory:",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    database.Base.metadata.create_all(bind=migration_engine)
-    migration_session = sessionmaker(bind=migration_engine)
-    with migration_session() as db:
-        db.add(
-            models.User(
-                username="existing-shadow",
-                email=roles.SHADOW_ACCOUNT_EMAIL,
-                is_admin=False,
-            )
-        )
-        db.commit()
+    with migration_engine.begin() as connection:
+        connection.execute(text(
+            "CREATE TABLE users ("
+            "id INTEGER PRIMARY KEY, username VARCHAR(64), email VARCHAR(254), "
+            "password_hash VARCHAR(255), balance FLOAT, is_admin BOOLEAN, "
+            "is_banned BOOLEAN, created_at DATETIME)"
+        ))
+        connection.execute(text(
+            "INSERT INTO users (id, username, email, balance, is_admin, is_banned) "
+            "VALUES (1, 'admin-user', 'admin@example.com', 10000, TRUE, FALSE), "
+            "(2, 'regular-user', 'regular@example.com', 10000, FALSE, FALSE)"
+        ))
 
     monkeypatch.setattr(database, "engine", migration_engine)
     database.ensure_auth_columns()
 
-    with migration_session() as db:
-        user = db.query(models.User).filter_by(username="existing-shadow").one()
-        assert user.is_admin is True
+    columns = {column["name"] for column in inspect(migration_engine).get_columns("users")}
+    assert "is_shadow" in columns
+    with migration_engine.connect() as connection:
+        users = connection.execute(text(
+            "SELECT username, is_admin, is_shadow FROM users ORDER BY id"
+        )).mappings().all()
+    assert bool(users[0]["is_admin"]) is True
+    assert bool(users[0]["is_shadow"]) is False
+    assert bool(users[1]["is_admin"]) is False
+    assert bool(users[1]["is_shadow"]) is False
 
 
 def test_transaction_history_describes_resolved_wager():
@@ -1304,6 +1339,9 @@ def test_factory_reset_requires_admin_key_and_deletes_all_data():
         json={"email": "admin@gbn.cz", "username": "test-admin", "password": "spravneheslo"},
     )
     assert admin.status_code == 200
+    with TestSessionLocal() as db:
+        db.get(models.User, admin.json()["user"]["id"]).is_admin = True
+        db.commit()
     ADMIN_HEADERS["Authorization"] = f"Bearer {admin.json()['token']}"
 
 

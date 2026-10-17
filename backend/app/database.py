@@ -3,8 +3,6 @@ import os
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-from app.roles import ADMIN_EMAILS
-
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./tournament.db")
 # Neon/Render's connection string may start with "postgres://" — SQLAlchemy 2.x needs "postgresql://"
 if DATABASE_URL.startswith("postgres://"):
@@ -43,10 +41,9 @@ def ensure_auth_columns() -> None:
         _execute_migration(
             "ALTER TABLE users ADD COLUMN is_banned BOOLEAN NOT NULL DEFAULT FALSE"
         )
-    for admin_email in ADMIN_EMAILS:
+    if "is_shadow" not in columns:
         _execute_migration(
-            "UPDATE users SET is_admin = TRUE WHERE lower(email) = :email",
-            {"email": admin_email},
+            "ALTER TABLE users ADD COLUMN is_shadow BOOLEAN NOT NULL DEFAULT FALSE"
         )
     _execute_migration("UPDATE users SET balance = ROUND(balance)")
 
