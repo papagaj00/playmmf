@@ -101,7 +101,7 @@ class PushPublicKey(BaseModel):
 class MarketCreate(BaseModel):
     title: str = Field(default="", max_length=200)
     description: str = ""
-    b: float = Field(gt=0, description="Initial pool value per outcome")
+    b: float = Field(gt=0, description="Total initial pool across all outcomes")
     stage: str = Field(default="group", pattern=r"^(group|quarterfinal|semifinal|third_place|final)$")
     scheduled_at: datetime | None = None
     outcome_names: list[str] = Field(min_length=2)

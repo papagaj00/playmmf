@@ -35,8 +35,12 @@ def require_app_open(db: Session = Depends(get_db)) -> None:
         raise HTTPException(status_code=503, detail="The app is on a maintenance break.")
 
 
-def _market_to_out(market: models.Market) -> schemas.MarketOut:
-    price_map = crud.market_prices(market)
+def _market_to_out(
+    market: models.Market,
+    seeds_by_outcome: dict[int, float],
+    stakes_by_outcome: dict[int, float],
+) -> schemas.MarketOut:
+    price_map = crud.market_prices(market, seeds_by_outcome, stakes_by_outcome)
     return schemas.MarketOut(
         id=market.id,
         title=market.title,
@@ -55,6 +59,14 @@ def _market_to_out(market: models.Market) -> schemas.MarketOut:
             for o in sorted(market.outcomes, key=lambda outcome: outcome.id)
         ],
     )
+
+
+def _markets_to_out(db: Session, markets: list[models.Market]) -> list[schemas.MarketOut]:
+    seeds_by_outcome, stakes_by_outcome = crud.market_pricing_data(db, markets)
+    return [
+        _market_to_out(market, seeds_by_outcome, stakes_by_outcome)
+        for market in markets
+    ]
 
 
 def get_current_user(
@@ -348,12 +360,12 @@ def create_market(payload: schemas.MarketCreate, db: Session = Depends(get_db)):
     except (crud.InvalidTrade, KeyError) as error:
         raise HTTPException(status_code=400, detail=str(error))
     crud.notify_market_created(db, market)
-    return _market_to_out(market)
+    return _markets_to_out(db, [market])[0]
 
 
 @app.get("/markets", response_model=list[schemas.MarketOut], dependencies=[Depends(require_app_open_or_admin)])
 def list_markets(db: Session = Depends(get_db)):
-    return [_market_to_out(m) for m in crud.list_markets(db)]
+    return _markets_to_out(db, crud.list_markets(db))
 
 
 @app.get("/markets/{market_id}", response_model=schemas.MarketOut, dependencies=[Depends(require_app_open_or_admin)])
@@ -361,7 +373,7 @@ def get_market(market_id: int, db: Session = Depends(get_db)):
     market = crud.get_market(db, market_id)
     if not market:
         raise HTTPException(status_code=404, detail="Zápas nebyl nalezen.")
-    return _market_to_out(market)
+    return _markets_to_out(db, [market])[0]
 
 
 @app.post(
@@ -374,7 +386,7 @@ def set_market_status(market_id: int, status: models.MarketStatus, db: Session =
     if not market:
         raise HTTPException(status_code=404, detail="Zápas nebyl nalezen.")
     market = crud.set_market_status(db, market, status)
-    return _market_to_out(market)
+    return _markets_to_out(db, [market])[0]
 
 
 @app.delete("/markets/{market_id}", status_code=204, dependencies=[Depends(require_admin)])
@@ -400,7 +412,7 @@ def resolve_market(market_id: int, payload: schemas.MarketResolve, db: Session =
         raise HTTPException(status_code=400, detail=str(e))
     except crud.MarketNotOpen as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return _market_to_out(market)
+    return _markets_to_out(db, [market])[0]
 
 
 # ---------- Trading ----------

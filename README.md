@@ -106,14 +106,13 @@ deployed), copy `.env.example` to `.env` and set `VITE_API_URL`.
    winners automatically.
 6. Leaderboard tab ranks players by cash balance only.
 
-## Choosing `b` (the initial pool value)
+## Choosing `b` (the total initial pool)
 
-Bigger `b` = more stable odds because each wager is smaller relative to the
-starting pools. The admin form defaults to `b = 5,000`, a reasonable starting
-point for 10,000-point accounts and many participants. Use `b = 1,000` for
-faster odds movement or `b = 10,000` for steadier odds. There is no maximum
-loss bound in this pool model, so choose `b` with the tournament's total
-possible payouts in mind.
+`b` is the total pool across all outcomes and is split according to their
+opening probabilities. The admin form defaults to `b = 20,000`, so a 50/50
+market starts with 10,000 points per side. Larger pools make odds more stable;
+smaller pools make odds move faster. There is no maximum loss bound in this
+pool model, so choose `b` with the tournament's total possible payouts in mind.
 
 ## Notes / things to decide before running it for real
 

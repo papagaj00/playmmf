@@ -2,6 +2,7 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from math import sqrt
 from types import ModuleType
 
 os.environ["ADMIN_EMAIL"] = "admin@gbn.cz"
@@ -437,6 +438,120 @@ def test_market_custom_opening_probabilities_seed_prices():
         headers=ADMIN_HEADERS,
     )
     assert invalid.status_code == 400
+
+
+def test_damped_prices_use_cumulative_stakes_and_preserve_seed():
+    market = models.Market(
+        id=900,
+        b=20000,
+        status=models.MarketStatus.OPEN,
+        outcomes=[
+            models.Outcome(id=901, name="A", quantity=180000),
+            models.Outcome(id=902, name="B", quantity=20000),
+        ],
+    )
+    prices = crud.market_prices(
+        market,
+        seeds_by_outcome={901: 10000, 902: 10000},
+        stakes_by_outcome={901: 170000, 902: 10000},
+    )
+
+    assert prices[901] == pytest.approx(0.75)
+    assert prices[902] == pytest.approx(0.25)
+    assert [outcome.quantity for outcome in market.outcomes] == [180000, 20000]
+
+
+def test_damped_quote_uses_current_probability_and_preserves_locked_payout():
+    user = register("damped-quote-user").json()["user"]
+    market = client.post(
+        "/markets",
+        json={
+            "title": "Damped quote market",
+            "b": 20000,
+            "outcome_names": ["A", "B"],
+        },
+        headers=ADMIN_HEADERS,
+    ).json()
+    outcome_a = market["outcomes"][0]
+
+    first_quote = client.post(
+        f"/markets/{market['id']}/wager/quote",
+        json={"outcome_id": outcome_a["id"], "amount": 100},
+    ).json()
+    assert first_quote["locked_payout"] == pytest.approx(200)
+
+    wager = client.post(
+        f"/markets/{market['id']}/wager",
+        json={"username": user["username"], "outcome_id": outcome_a["id"], "amount": 100},
+    )
+    assert wager.status_code == 200
+    assert wager.json()["locked_payout"] == pytest.approx(200)
+
+    current = client.get(f"/markets/{market['id']}").json()
+    current_price_a = next(item["price"] for item in current["outcomes"] if item["id"] == outcome_a["id"])
+    expected_price_a = sqrt(10000 * 10100) / (sqrt(10000 * 10100) + 10000)
+    assert current_price_a == pytest.approx(expected_price_a)
+
+    next_quote = client.post(
+        f"/markets/{market['id']}/wager/quote",
+        json={"outcome_id": outcome_a["id"], "amount": 100},
+    ).json()
+    assert next_quote["price_before"] == pytest.approx(expected_price_a)
+    assert next_quote["locked_payout"] == pytest.approx(100 / expected_price_a)
+    expected_after = sqrt(10000 * 10200) / (sqrt(10000 * 10200) + 10000)
+    assert next_quote["price_after"] == pytest.approx(expected_after)
+
+    with TestSessionLocal() as db:
+        existing_position = db.query(models.Position).filter_by(
+            user_id=user["id"], outcome_id=outcome_a["id"]
+        ).one()
+        assert existing_position.locked_payout == pytest.approx(200)
+
+
+def test_open_legacy_market_uses_seed_and_aggregates_split_stakes():
+    user = register("legacy-damped-user").json()["user"]
+    market = client.post(
+        "/markets",
+        json={"title": "Legacy damped market", "b": 20000, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+    outcome_a, outcome_b = market["outcomes"]
+
+    with TestSessionLocal() as db:
+        legacy_market = db.get(models.Market, market["id"])
+        legacy_market.b = 10000
+        db.add_all([
+            models.Transaction(
+                user_id=user["id"],
+                outcome_id=outcome_a["id"],
+                type=models.TransactionType.TRADE,
+                shares=1,
+                amount=85000,
+                balance_after=0,
+            ),
+            models.Transaction(
+                user_id=user["id"],
+                outcome_id=outcome_a["id"],
+                type=models.TransactionType.TRADE,
+                shares=1,
+                amount=85000,
+                balance_after=0,
+            ),
+            models.Transaction(
+                user_id=user["id"],
+                outcome_id=outcome_b["id"],
+                type=models.TransactionType.TRADE,
+                shares=1,
+                amount=10000,
+                balance_after=0,
+            ),
+        ])
+        db.commit()
+
+    recalculated = client.get(f"/markets/{market['id']}").json()
+    prices = {item["id"]: item["price"] for item in recalculated["outcomes"]}
+    assert prices[outcome_a["id"]] == pytest.approx(0.75)
+    assert prices[outcome_b["id"]] == pytest.approx(0.25)
 
 
 def test_market_schedule_is_persisted():

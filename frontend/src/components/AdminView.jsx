@@ -5,7 +5,7 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
   const [description, setDescription] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [stage, setStage] = useState("group");
-  const [b, setB] = useState(10000);
+  const [b, setB] = useState(20000);
   const [teamIds, setTeamIds] = useState(["", ""]);
   const [initialProbabilities, setInitialProbabilities] = useState([50, 50]);
   const [busy, setBusy] = useState(false);
@@ -174,7 +174,7 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
             required
           />
 
-          <label>Počáteční pool pro každý výsledek (b)</label>
+          <label>Celkový počáteční pool (b)</label>
           <input type="number" min="1" step="1" value={b} onChange={(e) => setB(e.target.value)} />
 
           <label htmlFor="market-stage">Fáze turnaje</label>

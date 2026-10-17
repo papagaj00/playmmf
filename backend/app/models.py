@@ -128,7 +128,7 @@ class Market(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str] = mapped_column(String(1000), default="")
-    b: Mapped[float] = mapped_column(Float)  # initial pool value L per outcome
+    b: Mapped[float] = mapped_column(Float)  # total initial pool across all outcomes
     stage: Mapped[str] = mapped_column(String(32), default="group")
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     status: Mapped[MarketStatus] = mapped_column(

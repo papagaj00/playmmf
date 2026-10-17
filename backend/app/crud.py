@@ -3,8 +3,10 @@ import math
 import os
 import re
 from datetime import datetime, timedelta, timezone
+from math import sqrt
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import auth, lmsr, models
@@ -602,13 +604,87 @@ def list_markets(db: Session) -> list[models.Market]:
     return db.query(models.Market).order_by(models.Market.created_at.desc()).all()
 
 
-def market_prices(market: models.Market) -> dict[int, float]:
+def market_pricing_data(
+    db: Session, markets: list[models.Market]
+) -> tuple[dict[int, float], dict[int, float]]:
+    unresolved = [market for market in markets if market.status != models.MarketStatus.RESOLVED]
+    outcomes = [outcome for market in unresolved for outcome in market.outcomes]
+    outcome_ids = [outcome.id for outcome in outcomes]
+    if not outcome_ids:
+        return {}, {}
+
+    stake_rows = (
+        db.query(models.Transaction.outcome_id, func.sum(models.Transaction.amount))
+        .filter(
+            models.Transaction.outcome_id.in_(outcome_ids),
+            models.Transaction.type == models.TransactionType.TRADE,
+            models.Transaction.amount > 0,
+        )
+        .group_by(models.Transaction.outcome_id)
+        .all()
+    )
+    stakes_by_outcome = {outcome_id: float(total) for outcome_id, total in stake_rows}
+
+    legacy_outcome_ids = {
+        outcome_id
+        for (outcome_id,) in db.query(models.Transaction.outcome_id)
+        .filter(
+            models.Transaction.outcome_id.in_(outcome_ids),
+            models.Transaction.type == models.TransactionType.TRADE,
+            models.Transaction.shares != 0,
+        )
+        .distinct()
+        .all()
+    }
+    legacy_outcome_ids.update(
+        outcome_id
+        for (outcome_id,) in db.query(models.Position.outcome_id)
+        .filter(
+            models.Position.outcome_id.in_(outcome_ids),
+            models.Position.shares != 0,
+        )
+        .distinct()
+        .all()
+    )
+
+    legacy_market_ids = {
+        market.id
+        for market in unresolved
+        if any(outcome.id in legacy_outcome_ids for outcome in market.outcomes)
+        or all(outcome.quantity == 0 for outcome in market.outcomes)
+    }
+    seeds_by_outcome = {}
+    for market in unresolved:
+        for outcome in market.outcomes:
+            stake = stakes_by_outcome.get(outcome.id, 0.0)
+            seed = market.b if market.id in legacy_market_ids else outcome.quantity - stake
+            seeds_by_outcome[outcome.id] = max(0.0, float(seed))
+    return seeds_by_outcome, stakes_by_outcome
+
+
+def market_prices(
+    market: models.Market,
+    seeds_by_outcome: dict[int, float] | None = None,
+    stakes_by_outcome: dict[int, float] | None = None,
+) -> dict[int, float]:
     if market.status == models.MarketStatus.RESOLVED:
         return historical_pool_prices(market)
-    total_pool = sum(o.quantity for o in market.outcomes)
-    if total_pool <= 0:
+    seeds_by_outcome = seeds_by_outcome or {}
+    stakes_by_outcome = stakes_by_outcome or {}
+    weights = {
+        outcome.id: sqrt(
+            max(0.0, seeds_by_outcome.get(outcome.id, outcome.quantity))
+            * (
+                max(0.0, seeds_by_outcome.get(outcome.id, outcome.quantity))
+                + max(0.0, stakes_by_outcome.get(outcome.id, 0.0))
+            )
+        )
+        for outcome in market.outcomes
+    }
+    total_weight = sum(weights.values())
+    if total_weight <= 0:
         return {o.id: 1 / len(market.outcomes) for o in market.outcomes}
-    return {o.id: o.quantity / total_pool for o in market.outcomes}
+    return {outcome_id: weight / total_weight for outcome_id, weight in weights.items()}
 
 
 def historical_pool_prices(market: models.Market) -> dict[int, float]:
@@ -752,11 +828,12 @@ def quote_wager(
         raise ExistingMarketPosition(
             "Na tento zápas už máš otevřenou sázku na jiný výsledek."
         )
-    total_pool = sum(o.quantity for o in market.outcomes)
-    price_before = outcome.quantity / total_pool
+    seeds_by_outcome, stakes_by_outcome = market_pricing_data(db, [market])
+    price_before = market_prices(market, seeds_by_outcome, stakes_by_outcome)[outcome_id]
     payout = amount / price_before
-    next_total = total_pool + amount
-    price_after = (outcome.quantity + amount) / next_total
+    next_stakes_by_outcome = dict(stakes_by_outcome)
+    next_stakes_by_outcome[outcome_id] = next_stakes_by_outcome.get(outcome_id, 0.0) + amount
+    price_after = market_prices(market, seeds_by_outcome, next_stakes_by_outcome)[outcome_id]
     return {
         "outcome_id": outcome_id,
         "amount": amount,
