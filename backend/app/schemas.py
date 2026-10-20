@@ -61,6 +61,19 @@ class LeaderboardEntry(BaseModel):
 
 class SystemStatus(BaseModel):
     maintenance: bool
+    score_guess_reward: int
+
+
+class MaintenanceUpdate(BaseModel):
+    maintenance: bool
+
+
+class ScoreGuessRewardUpdate(BaseModel):
+    amount: int = Field(ge=0, le=1_000_000_000)
+
+
+class ScoreGuessRewardOut(BaseModel):
+    amount: int
 
 
 class InfoMessageCreate(BaseModel):

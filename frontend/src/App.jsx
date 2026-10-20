@@ -24,6 +24,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [initialDataLoading, setInitialDataLoading] = useState(true);
   const [maintenance, setMaintenance] = useState(false);
+  const [scoreGuessReward, setScoreGuessReward] = useState(5000);
   const refreshFailures = useRef(0);
   const marketsCount = useRef(0);
   const initialRefreshComplete = useRef(false);
@@ -43,6 +44,7 @@ export default function App() {
     try {
       const system = await api.systemStatus();
       setMaintenance(system.maintenance);
+      setScoreGuessReward(system.score_guess_reward);
       if (system.maintenance && !adminVerified) {
         setInitialDataLoading(false);
         setError(null);
@@ -87,6 +89,7 @@ export default function App() {
     try {
       const system = await api.systemStatus();
       setMaintenance(system.maintenance);
+      setScoreGuessReward(system.score_guess_reward);
       if (system.maintenance && !adminVerified) {
         setInitialDataLoading(false);
         setError(null);
@@ -229,6 +232,7 @@ export default function App() {
             balance={user ? user.balance : 0}
             positions={positions}
             guesses={guesses}
+            scoreGuessReward={scoreGuessReward}
             loading={initialDataLoading}
             onChanged={refreshAll}
             isAdmin={isAdmin}
@@ -245,6 +249,8 @@ export default function App() {
             onMarketCreated={refreshAll}
             maintenance={maintenance}
             onMaintenanceChange={handleMaintenanceChange}
+            scoreGuessReward={scoreGuessReward}
+            onScoreGuessRewardChange={setScoreGuessReward}
           />
         )}
       </div>

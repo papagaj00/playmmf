@@ -206,7 +206,21 @@ def verify_admin():
 
 @app.get("/system/status", response_model=schemas.SystemStatus)
 def system_status(db: Session = Depends(get_db)):
-    return {"maintenance": crud.is_maintenance(db)}
+    return {
+        "maintenance": crud.is_maintenance(db),
+        "score_guess_reward": crud.get_score_guess_reward(db),
+    }
+
+
+@app.post(
+    "/admin/score-guess-reward",
+    response_model=schemas.ScoreGuessRewardOut,
+    dependencies=[Depends(require_admin)],
+)
+def set_score_guess_reward(
+    payload: schemas.ScoreGuessRewardUpdate, db: Session = Depends(get_db)
+):
+    return {"amount": crud.set_score_guess_reward(db, payload.amount)}
 
 
 @app.get("/info/messages", response_model=list[schemas.InfoMessageOut])
@@ -261,8 +275,11 @@ def create_info_message(payload: schemas.InfoMessageCreate, db: Session = Depend
 
 
 @app.post("/admin/maintenance", response_model=schemas.SystemStatus, dependencies=[Depends(require_admin)])
-def set_maintenance(payload: schemas.SystemStatus, db: Session = Depends(get_db)):
-    return {"maintenance": crud.set_maintenance(db, payload.maintenance)}
+def set_maintenance(payload: schemas.MaintenanceUpdate, db: Session = Depends(get_db)):
+    return {
+        "maintenance": crud.set_maintenance(db, payload.maintenance),
+        "score_guess_reward": crud.get_score_guess_reward(db),
+    }
 
 
 @app.get("/admin/users", response_model=list[schemas.UserOut], dependencies=[Depends(require_admin)])

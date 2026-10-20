@@ -3,6 +3,8 @@ import { formatPoints } from "../format";
 
 export default function TradeSheet({ outcome, amount, balance, onAmountChange, quote, busy, onClose, onConfirm }) {
     if (!outcome) return null;
+    const amountValue = amount === "" ? Number.NaN : Number(amount);
+    const validAmount = Number.isFinite(amountValue) && amountValue >= 100 && amountValue <= balance;
 
     return (
         <div className="trade-sheet-layer" role="presentation">
@@ -25,7 +27,7 @@ export default function TradeSheet({ outcome, amount, balance, onAmountChange, q
                 <div className="trade-sheet__unit">
                     <div>
                         <span className="trade-sheet__label">Vklad</span>
-                        <strong className="trade-sheet__amount-value">{formatPoints(amount)} bodů</strong>
+                        <strong className="trade-sheet__amount-value">{formatPoints(Number.isFinite(amountValue) ? amountValue : 0)} bodů</strong>
                     </div>
                     <span className="trade-sheet__balance">Zůstatek {formatPoints(balance)} bodů</span>
                 </div>
@@ -37,19 +39,19 @@ export default function TradeSheet({ outcome, amount, balance, onAmountChange, q
                             min="100"
                             step="1"
                             value={amount}
-                            onChange={(event) => onAmountChange(Number(event.target.value))}
+                            onChange={(event) => onAmountChange(event.target.value)}
                             aria-label="Částka sázky v bodech"
                         />
                         <span>bodů</span>
                     </div>
                     <div className="stake-control__quick-picks">
                         {[100, 500, 1000].map((value) => (
-                            <button key={value} type="button" className={amount === value ? "active" : ""} onClick={() => onAmountChange(value)}>
+                            <button key={value} type="button" className={amount === String(value) ? "active" : ""} onClick={() => onAmountChange(String(value))}>
                                 {formatPoints(value)}
                             </button>
                         ))}
                         {balance >= 100 && (
-                            <button type="button" className={amount === balance ? "active" : ""} onClick={() => onAmountChange(balance)}>
+                            <button type="button" className={amount === String(balance) ? "active" : ""} onClick={() => onAmountChange(String(balance))}>
                                 Vše
                             </button>
                         )}
@@ -61,8 +63,8 @@ export default function TradeSheet({ outcome, amount, balance, onAmountChange, q
                         <strong>{formatPoints(quote.gross_payout)} bodů</strong>
                     </div>
                 )}
-                <button className="trade-sheet__confirm" disabled={busy || !quote || amount < 100 || amount > balance} onClick={onConfirm}>
-                    {busy ? "Odesílání…" : `Vsadit ${formatPoints(amount)} bodů`}
+                <button className="trade-sheet__confirm" disabled={busy || !quote || !validAmount} onClick={onConfirm}>
+                    {busy ? "Odesílání…" : `Vsadit ${formatPoints(Number.isFinite(amountValue) ? amountValue : 0)} bodů`}
                 </button>
             </section>
         </div>

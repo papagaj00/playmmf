@@ -20,10 +20,12 @@ function formatMatchDate(value) {
   }).format(new Date(value));
 }
 
-export default function MarketCard({ market, username, balance, positions, guess, onChanged, isAdmin }) {
+export default function MarketCard({ market, username, balance, positions, guess, onChanged, isAdmin, scoreGuessReward }) {
   const [adminBusy, setAdminBusy] = useState(false);
   const [selectedOutcomeId, setSelectedOutcomeId] = useState(null);
-  const [amount, setAmount] = useState(100);
+  const [amount, setAmount] = useState("100");
+  const amountValue = amount === "" ? Number.NaN : Number(amount);
+  const validAmount = Number.isFinite(amountValue) && amountValue >= 100 && amountValue <= balance;
   const [quote, setQuote] = useState(null);
   const [message, setMessage] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -42,13 +44,13 @@ export default function MarketCard({ market, username, balance, positions, guess
   const openPosition = positions.find((position) => position.market_id === market.id);
 
   useEffect(() => {
-    if (!tradable || !selectedOutcomeId) {
+    if (!tradable || !selectedOutcomeId || !validAmount) {
       setQuote(null);
       return;
     }
     let cancelled = false;
     api
-      .quoteWager(market.id, selectedOutcomeId, amount)
+      .quoteWager(market.id, selectedOutcomeId, amountValue)
       .then((nextQuote) => {
         if (!cancelled) setQuote(nextQuote);
       })
@@ -58,7 +60,7 @@ export default function MarketCard({ market, username, balance, positions, guess
     return () => {
       cancelled = true;
     };
-  }, [amount, market.id, market.outcomes, market.status, selectedOutcomeId, tradable]);
+  }, [amountValue, market.id, market.outcomes, market.status, selectedOutcomeId, tradable, validAmount]);
 
   async function placeWager() {
     if (!selectedOutcome) {
@@ -71,11 +73,11 @@ export default function MarketCard({ market, username, balance, positions, guess
       const result = await api.placeWager(
         market.id,
         selectedOutcome.id,
-        amount
+        amountValue
       );
       setMessage({
         type: "success",
-        text: `Sázka ${formatPoints(amount)} bodů na „${selectedOutcome.name}“ přijata. Možná výhra: ${formatPoints(result.gross_payout)} bodů (kurz ${result.multiplier.toFixed(2)}).`,
+        text: `Sázka ${formatPoints(amountValue)} bodů na „${selectedOutcome.name}“ přijata. Možná výhra: ${formatPoints(result.gross_payout)} bodů (kurz ${result.multiplier.toFixed(2)}).`,
       });
       setQuote(null);
       setSelectedOutcomeId(null);
@@ -225,6 +227,7 @@ export default function MarketCard({ market, username, balance, positions, guess
           right={orderedOutcomes[1]}
           guess={guess}
           onSaved={onChanged}
+          reward={scoreGuessReward}
         />
       )}
 

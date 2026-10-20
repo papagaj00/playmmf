@@ -1,7 +1,7 @@
 import MarketCard from "./MarketCard";
 import LoadingState from "./LoadingState";
 
-export default function MarketsView({ markets, username, balance, positions, guesses = [], loading, onChanged, isAdmin }) {
+export default function MarketsView({ markets, username, balance, positions, guesses = [], loading, onChanged, isAdmin, scoreGuessReward }) {
   const sortBySchedule = (left, right) => {
     if (left.scheduled_at && right.scheduled_at) {
       return new Date(left.scheduled_at) - new Date(right.scheduled_at);
@@ -31,6 +31,7 @@ export default function MarketsView({ markets, username, balance, positions, gue
           guess={guesses.find((g) => g.market_id === m.id)}
           onChanged={onChanged}
           isAdmin={isAdmin}
+          scoreGuessReward={scoreGuessReward}
         />
       ))}
 
@@ -49,6 +50,7 @@ export default function MarketsView({ markets, username, balance, positions, gue
               guess={guesses.find((g) => g.market_id === m.id)}
               onChanged={onChanged}
               isAdmin={isAdmin}
+              scoreGuessReward={scoreGuessReward}
             />
           ))}
         </>

@@ -230,6 +230,7 @@ def test_admin_can_use_read_and_management_routes_during_maintenance():
         headers=ADMIN_HEADERS,
     )
     assert enabled.status_code == 200
+    assert enabled.json()["maintenance"] is True
 
     assert client.get("/markets", headers=ADMIN_HEADERS).status_code == 200
     assert client.get("/teams/rosters", headers=ADMIN_HEADERS).status_code == 200
@@ -248,6 +249,7 @@ def test_admin_can_use_read_and_management_routes_during_maintenance():
         headers=ADMIN_HEADERS,
     )
     assert disabled.status_code == 200
+    assert disabled.json()["maintenance"] is False
     client.post("/auth/logout")
 
 
@@ -1295,8 +1297,10 @@ def test_maintenance_break_blocks_player_routes_but_admin_can_toggle_it():
         "/admin/maintenance", json={"maintenance": True}, headers=ADMIN_HEADERS
     )
     assert enabled.status_code == 200
-    assert enabled.json() == {"maintenance": True}
-    assert client.get("/system/status").json() == {"maintenance": True}
+    assert enabled.json()["maintenance"] is True
+    system_status = client.get("/system/status").json()
+    assert system_status["maintenance"] is True
+    assert system_status["score_guess_reward"] == 5000
     assert client.get("/markets").status_code == 503
     assert client.get("/leaderboard").status_code == 503
     assert client.get("/admin/verify", headers=ADMIN_HEADERS).status_code == 200
@@ -1309,6 +1313,25 @@ def test_maintenance_break_blocks_player_routes_but_admin_can_toggle_it():
 
 
 def test_score_guess_can_be_updated_and_only_exact_score_wins_reward():
+    non_admin = register("score-reward-nonadmin").json()
+    assert client.post(
+        "/admin/score-guess-reward",
+        json={"amount": 1500},
+        headers={"Authorization": f"Bearer {non_admin['token']}"},
+    ).status_code == 403
+    assert client.post(
+        "/admin/score-guess-reward",
+        json={"amount": -1},
+        headers=ADMIN_HEADERS,
+    ).status_code == 422
+    configured_reward = client.post(
+        "/admin/score-guess-reward",
+        json={"amount": 1500},
+        headers=ADMIN_HEADERS,
+    )
+    assert configured_reward.status_code == 200
+    assert configured_reward.json() == {"amount": 1500}
+
     market_response = client.post(
         "/markets",
         json={"title": "Score guess match", "b": 20, "outcome_names": ["A", "B"]},
@@ -1364,13 +1387,20 @@ def test_score_guess_can_be_updated_and_only_exact_score_wins_reward():
     assert resolved.status_code == 200
     exact_balance = client.get("/users/score-exact-player", headers=exact_headers).json()["balance"]
     miss_balance = client.get("/users/score-miss-player", headers=miss_headers).json()["balance"]
-    assert exact_balance == 15000
+    assert exact_balance == 11500
     assert miss_balance == 10000
 
     exact_guess = client.get("/users/score-exact-player/guesses", headers=exact_headers).json()[0]
     miss_guess = client.get("/users/score-miss-player/guesses", headers=miss_headers).json()[0]
     assert exact_guess["won"] is True
     assert miss_guess["won"] is False
+    exact_transactions = client.get(
+        "/users/score-exact-player/transactions", headers=exact_headers
+    ).json()
+    assert any(
+        transaction["amount"] == -1500
+        for transaction in exact_transactions
+    )
 
     duplicate_resolution = client.post(
         f"/markets/{market_id}/resolve",
@@ -1378,7 +1408,12 @@ def test_score_guess_can_be_updated_and_only_exact_score_wins_reward():
         headers=ADMIN_HEADERS,
     )
     assert duplicate_resolution.status_code == 400
-    assert client.get("/users/score-exact-player", headers=exact_headers).json()["balance"] == 15000
+    assert client.get("/users/score-exact-player", headers=exact_headers).json()["balance"] == 11500
+    assert client.post(
+        "/admin/score-guess-reward",
+        json={"amount": 5000},
+        headers=ADMIN_HEADERS,
+    ).json() == {"amount": 5000}
 
 
 def test_factory_reset_requires_admin_key_and_deletes_all_data():

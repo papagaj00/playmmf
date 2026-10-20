@@ -93,10 +93,11 @@ deployed), copy `.env.example` to `.env` and set `VITE_API_URL`.
   matches (title + possible results + an initial pool value `b`). Accounts
   with `users.is_shadow = TRUE` are omitted from the leaderboard but remain
   available in the Admin tab's balance-adjustment selector.
-3. The Admin tab can grant or remove points from every player, ban or unban a
-  player by school email, permanently delete matches, and perform a factory
-  reset. Balance changes are recorded in transaction history; balance removal
-  is rejected if it would make any account negative.
+3. The Admin tab can grant or remove points from every player, configure the
+  reward for an exact-score guess (5,000 points by default), permanently delete
+  matches, and perform a factory reset. Balance changes are recorded in
+  transaction history; balance removal is rejected if it would make any
+  account negative.
 4. Players select an outcome, enter a stake of at least 100 points, review the
   exact gross payout and multiplier, and confirm the wager. Prices update live
   after every wager (the app polls every 5 seconds).

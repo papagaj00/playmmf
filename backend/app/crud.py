@@ -15,7 +15,7 @@ STARTING_BALANCE = 10000.0
 MIN_TRADE_SHARES = 1.0
 MIN_TRADE_AMOUNT = 0.01
 MIN_WAGER_AMOUNT = 100.0
-SCORE_GUESS_REWARD = 5000
+DEFAULT_SCORE_GUESS_REWARD = 5000
 TEAM_NAMES = [
     "Gladiators 4B (A)", "Gladiators 4B (B)", "8A8", "FC Gooners 4A",
     "FC Bumass 7A8", "3A", "FC Alpacas 2A", "FC Tortas 2B", "6B8",
@@ -77,6 +77,7 @@ class GuessClosed(Exception):
 
 
 MAINTENANCE_KEY = "maintenance"
+SCORE_GUESS_REWARD_KEY = "score_guess_reward"
 
 
 def is_maintenance(db: Session) -> bool:
@@ -92,6 +93,21 @@ def set_maintenance(db: Session, enabled: bool) -> bool:
     setting.value = "true" if enabled else "false"
     db.commit()
     return enabled
+
+
+def get_score_guess_reward(db: Session) -> int:
+    setting = db.get(models.AppSetting, SCORE_GUESS_REWARD_KEY)
+    return DEFAULT_SCORE_GUESS_REWARD if setting is None else int(setting.value)
+
+
+def set_score_guess_reward(db: Session, amount: int) -> int:
+    setting = db.get(models.AppSetting, SCORE_GUESS_REWARD_KEY)
+    if setting is None:
+        setting = models.AppSetting(key=SCORE_GUESS_REWARD_KEY)
+        db.add(setting)
+    setting.value = str(amount)
+    db.commit()
+    return amount
 
 
 def list_info_messages(db: Session) -> list[models.InfoMessage]:
@@ -769,19 +785,20 @@ def _settle_score_guesses(db: Session, market: models.Market, scores: list[int])
     """Pay the flat reward to every user who guessed the exact result."""
     guesses = db.query(models.ScoreGuess).filter_by(market_id=market.id).all()
     reward_outcome_id = market.outcomes[0].id
+    reward = get_score_guess_reward(db)
     for guess in guesses:
         guess.won = [guess.first, guess.second] == scores
         if not guess.won:
             continue
         user = db.get(models.User, guess.user_id)
-        user.balance = round(user.balance + SCORE_GUESS_REWARD)
+        user.balance = round(user.balance + reward)
         db.add(
             models.Transaction(
                 user_id=user.id,
                 outcome_id=reward_outcome_id,
                 type=models.TransactionType.GRANT,
                 shares=0,
-                amount=-SCORE_GUESS_REWARD,
+                amount=-reward,
                 balance_after=user.balance,
             )
         )

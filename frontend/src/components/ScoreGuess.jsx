@@ -3,8 +3,6 @@ import { Check, ChevronDown, Lock, Minus, Plus, Target, Trophy } from "lucide-re
 import { api } from "../api";
 import { formatPoints } from "../format";
 
-// Keep in sync with SCORE_GUESS_REWARD in backend/app/crud.py.
-const GUESS_REWARD = 5000;
 const MAX_GOALS = 99;
 
 function Stepper({ value, onChange, label }) {
@@ -31,7 +29,7 @@ function Stepper({ value, onChange, label }) {
     );
 }
 
-export default function ScoreGuess({ market, left, right, guess, onSaved }) {
+export default function ScoreGuess({ market, left, right, guess, onSaved, reward }) {
     const [first, setFirst] = useState(guess?.first ?? 0);
     const [second, setSecond] = useState(guess?.second ?? 0);
     const [saving, setSaving] = useState(false);
@@ -73,7 +71,7 @@ export default function ScoreGuess({ market, left, right, guess, onSaved }) {
             >
                 <span className="score-guess__toggle-copy">
                     <span className="score-guess__title"><Target size={14} /> Tip na přesný výsledek</span>
-                    <span className="score-guess__reward"><b>+{formatPoints(GUESS_REWARD)} bodů</b> při přesné trefě · zdarma</span>
+                    <span className="score-guess__reward"><b>+{formatPoints(reward)} bodů</b> při přesné trefě · zdarma</span>
                 </span>
                 <span className="score-guess__toggle-end">
                     {collapsedSummary && <span className="score-guess__saved">{collapsedSummary}</span>}
@@ -113,7 +111,7 @@ export default function ScoreGuess({ market, left, right, guess, onSaved }) {
                 {(mode === "won" || mode === "lost") && (
                     <div className="score-guess__summary">
                         <span className="score-guess__summary-label">
-                            {mode === "won" ? <><Trophy size={14} /> Trefa! +{formatPoints(GUESS_REWARD)} bodů</> : "Tvůj tip nevyšel"}
+                            {mode === "won" ? <><Trophy size={14} /> Trefa! +{formatPoints(reward)} bodů</> : "Tvůj tip nevyšel"}
                         </span>
                         <span className="score-guess__score">{guess.first} : {guess.second}</span>
                     </div>

@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 
-export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMaintenanceChange }) {
+export default function AdminView({
+  isAdmin,
+  onMarketCreated,
+  maintenance,
+  onMaintenanceChange,
+  scoreGuessReward,
+  onScoreGuessRewardChange,
+}) {
   const [description, setDescription] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [stage, setStage] = useState("group");
@@ -10,11 +17,16 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
   const [initialProbabilities, setInitialProbabilities] = useState([50, 50]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
+  const [rewardMessage, setRewardMessage] = useState(null);
   const [points, setPoints] = useState(0);
   const [users, setUsers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState("");
-  const [email, setEmail] = useState("");
+  const [rewardDraft, setRewardDraft] = useState(String(scoreGuessReward));
+
+  useEffect(() => {
+    setRewardDraft(String(scoreGuessReward));
+  }, [scoreGuessReward]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -65,22 +77,21 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
     }
   }
 
-  async function handleBan(banned) {
-    const normalizedEmail = email.trim();
-    if (!normalizedEmail) {
-      setMessage({ type: "error", text: "Zadej e-mail hráče." });
+  async function handleScoreGuessRewardSave(event) {
+    event.preventDefault();
+    const amount = Number(rewardDraft);
+    if (!Number.isSafeInteger(amount) || amount < 0 || amount > 1_000_000_000) {
+      setRewardMessage({ type: "error", text: "Odměna musí být celé číslo od 0 do 1 000 000 000." });
       return;
     }
     setBusy(true);
-    setMessage(null);
+    setRewardMessage(null);
     try {
-      const action = banned ? api.banUser : api.unbanUser;
-      await action(normalizedEmail);
-      setMessage({ type: "success", text: banned ? "Hráč byl zablokován." : "Hráč byl odblokován." });
-      setEmail("");
-      onMarketCreated();
+      const result = await api.setScoreGuessReward(amount);
+      onScoreGuessRewardChange(result.amount);
+      setRewardMessage({ type: "success", text: `Odměna za přesný tip je nyní ${result.amount} bodů.` });
     } catch (err) {
-      setMessage({ type: "error", text: err.message });
+      setRewardMessage({ type: "error", text: err.message });
     } finally {
       setBusy(false);
     }
@@ -156,6 +167,27 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
             {maintenance ? "Vypnout maintenance break" : "Zapnout maintenance break"}
           </button>
         </section>
+
+        <form className="admin-form" style={{ marginTop: 28 }} onSubmit={handleScoreGuessRewardSave}>
+          <h3>Odměna za přesný výsledek</h3>
+          <p>Částka vyplacená hráči za správný tip na přesné skóre.</p>
+          <div className="admin-inline-form">
+            <input
+              type="number"
+              min="0"
+              max="1000000000"
+              step="1"
+              value={rewardDraft}
+              onChange={(event) => setRewardDraft(event.target.value)}
+              aria-label="Odměna za přesný výsledek v bodech"
+              required
+            />
+            <button className="btn-small" disabled={busy}>
+              {busy ? "Ukládání…" : "Uložit odměnu"}
+            </button>
+          </div>
+          {rewardMessage && <div className={`trade-message ${rewardMessage.type}`} style={{ marginTop: 12 }}>{rewardMessage.text}</div>}
+        </form>
 
         <form className="admin-form" onSubmit={handleSubmit}>
           <label>Popis (nepovinné)</label>
@@ -245,16 +277,6 @@ export default function AdminView({ isAdmin, onMarketCreated, maintenance, onMai
             <input type="number" step="0.01" value={points} onChange={(e) => setPoints(e.target.value)} />
             <button className="btn-small" disabled={busy}>Upravit body</button>
           </form>
-        </section>
-
-        <section className="admin-form" style={{ marginTop: 28 }}>
-          <h3>Blokace hráče</h3>
-          <p>Zablokovaný e-mail se nemůže přihlásit a jeho aktivní relace se zruší.</p>
-          <input type="email" placeholder="hrac@gbn.cz" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <div className="admin-form-actions">
-            <button type="button" className="btn-small" disabled={busy} onClick={() => handleBan(true)}>Zablokovat</button>
-            <button type="button" className="btn-small" disabled={busy} onClick={() => handleBan(false)}>Odblokovat</button>
-          </div>
         </section>
 
       </>}

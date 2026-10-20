@@ -74,6 +74,8 @@ export const api = {
       method: "POST",
       body: { maintenance },
     }),
+  setScoreGuessReward: (amount) =>
+    request("/admin/score-guess-reward", { method: "POST", body: { amount } }),
   getAdminUsers: () => request("/admin/users"),
   getTeams: () => request("/teams"),
   getTeamRosters: () => request("/teams/rosters"),
@@ -85,10 +87,6 @@ export const api = {
       method: "POST",
       body: { points, user_id: userId || null },
     }),
-  banUser: (email) =>
-    request("/admin/users/ban", { method: "POST", body: { email } }),
-  unbanUser: (email) =>
-    request("/admin/users/unban", { method: "POST", body: { email } }),
   addTeamPlayer: (teamId, name, goals) =>
     request(`/admin/teams/${teamId}/players`, { method: "POST", body: { name, goals } }),
   updateTeamPlayer: (teamId, playerId, name, goals) =>
