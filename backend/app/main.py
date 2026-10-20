@@ -1,6 +1,6 @@
 import os
 
-from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Response
+from fastapi import Cookie, Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -160,10 +160,15 @@ def get_user_positions(username: str, db: Session = Depends(get_db), user: model
 
 
 @app.get("/users/{username}/transactions", response_model=list[schemas.TransactionOut], dependencies=[Depends(require_app_open_or_admin)])
-def get_user_transactions(username: str, db: Session = Depends(get_db), user: models.User = Depends(get_current_user)):
+def get_user_transactions(
+    username: str,
+    limit: int | None = Query(default=None, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user),
+):
     if username != user.username:
         raise HTTPException(status_code=403, detail="K tomuto účtu nemáš přístup.")
-    return crud.get_transaction_history(db, user)
+    return crud.get_transaction_history(db, user, limit=limit)
 
 
 @app.get("/users/{username}/guesses", response_model=list[schemas.ScoreGuessOut], dependencies=[Depends(require_app_open_or_admin)])

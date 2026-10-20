@@ -25,6 +25,8 @@ export default function App() {
   const [initialDataLoading, setInitialDataLoading] = useState(true);
   const [maintenance, setMaintenance] = useState(false);
   const refreshFailures = useRef(0);
+  const marketsCount = useRef(0);
+  const initialRefreshComplete = useRef(false);
 
   useEffect(() => {
     api.me()
@@ -57,6 +59,7 @@ export default function App() {
       ]);
       setUser(u);
       setMarkets(m);
+      marketsCount.current = m.length;
       setLeaderboard(lb);
       setPositions(pos);
       setTransactions(tx);
@@ -70,17 +73,104 @@ export default function App() {
         setError(err.message || "Server není dostupný");
       }
     } finally {
-      setInitialDataLoading(refreshFailures.current > 0 && !markets.length);
+      initialRefreshComplete.current = true;
+      setInitialDataLoading(refreshFailures.current > 0 && marketsCount.current === 0);
     }
-  }, [adminVerified, username, markets.length]);
+  }, [adminVerified, username]);
 
   useEffect(() => {
     refreshAll();
-    const interval = setInterval(refreshAll, 5000);
-    return () => clearInterval(interval);
   }, [refreshAll]);
 
+  const refreshActiveTab = useCallback(async () => {
+    if (!username) return;
+    try {
+      const system = await api.systemStatus();
+      setMaintenance(system.maintenance);
+      if (system.maintenance && !adminVerified) {
+        setInitialDataLoading(false);
+        setError(null);
+        return;
+      }
+
+      let activeDataRequest;
+      switch (tab) {
+        case "markets":
+          activeDataRequest = Promise.all([
+            api.listMarkets(),
+            api.getPositions(username),
+            api.getGuesses(username),
+          ]).then(([marketData, positionData, guessData]) => ({
+            markets: marketData,
+            positions: positionData,
+            guesses: guessData,
+          }));
+          break;
+        case "portfolio":
+          activeDataRequest = Promise.all([
+            api.getPositions(username),
+            api.getTransactions(username),
+          ]).then(([positionData, transactionData]) => ({
+            positions: positionData,
+            transactions: transactionData,
+          }));
+          break;
+        case "leaderboard":
+          activeDataRequest = api.getLeaderboard().then((leaderboardData) => ({
+            leaderboard: leaderboardData,
+          }));
+          break;
+        case "tournament":
+          activeDataRequest = Promise.all([
+            api.listMarkets(),
+            api.getTeamRosters(),
+          ]).then(([marketData, rosterData]) => ({
+            markets: marketData,
+            rosters: rosterData,
+          }));
+          break;
+        default:
+          activeDataRequest = Promise.resolve({});
+      }
+
+      const [u, activeData] = await Promise.all([
+        api.getUser(username),
+        activeDataRequest,
+      ]);
+      setUser(u);
+      if (activeData.markets !== undefined) {
+        setMarkets(activeData.markets);
+        marketsCount.current = activeData.markets.length;
+      }
+      if (activeData.leaderboard !== undefined) setLeaderboard(activeData.leaderboard);
+      if (activeData.positions !== undefined) setPositions(activeData.positions);
+      if (activeData.transactions !== undefined) setTransactions(activeData.transactions);
+      if (activeData.rosters !== undefined) setRosters(activeData.rosters);
+      if (activeData.guesses !== undefined) setGuesses(activeData.guesses);
+      setError(null);
+      refreshFailures.current = 0;
+      setInitialDataLoading(false);
+    } catch (err) {
+      refreshFailures.current += 1;
+      if (refreshFailures.current >= 2) {
+        setError(err.message || "Server není dostupný");
+      }
+    }
+  }, [adminVerified, tab, username]);
+
+  useEffect(() => {
+    if (!username) return undefined;
+    if (initialRefreshComplete.current) refreshActiveTab();
+    const interval = setInterval(() => {
+      if (initialRefreshComplete.current) refreshActiveTab();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [refreshActiveTab, username]);
+
   function handleLogin(currentUser) {
+    refreshFailures.current = 0;
+    marketsCount.current = 0;
+    initialRefreshComplete.current = false;
     setInitialDataLoading(true);
     setUser(currentUser);
     setUsername(currentUser.username);
@@ -89,6 +179,9 @@ export default function App() {
 
   function handleLogout() {
     api.logout().finally(() => {
+      refreshFailures.current = 0;
+      marketsCount.current = 0;
+      initialRefreshComplete.current = false;
       setUsername("");
       setUser(null);
       setAdminVerified(false);

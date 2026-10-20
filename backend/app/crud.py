@@ -7,7 +7,7 @@ from math import sqrt
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app import auth, lmsr, models
 
@@ -369,35 +369,52 @@ def set_user_banned(db: Session, email: str, banned: bool) -> models.User:
 
 
 def get_leaderboard(db: Session) -> list[dict]:
-    users = db.query(models.User).filter(models.User.is_shadow.is_(False)).all()
-    board = []
-    for user in users:
-        wagered_value = sum(
-            position.stake_amount or 0.0
-            for position in user.positions
-            if position.outcome.market.status != models.MarketStatus.RESOLVED
+    wagered_by_user = (
+        db.query(
+            models.Position.user_id.label("user_id"),
+            func.sum(models.Position.stake_amount).label("wagered_value"),
         )
-        board.append(
-            {
-                "username": user.username,
-                "balance": user.balance,
-                "wagered_value": wagered_value,
-                "total_value": user.balance + wagered_value,
-            }
+        .join(models.Outcome, models.Position.outcome_id == models.Outcome.id)
+        .join(models.Market, models.Outcome.market_id == models.Market.id)
+        .filter(models.Market.status != models.MarketStatus.RESOLVED)
+        .group_by(models.Position.user_id)
+        .subquery()
+    )
+    rows = (
+        db.query(
+            models.User.username,
+            models.User.balance,
+            func.coalesce(wagered_by_user.c.wagered_value, 0.0),
         )
+        .outerjoin(wagered_by_user, models.User.id == wagered_by_user.c.user_id)
+        .filter(models.User.is_shadow.is_(False))
+        .all()
+    )
+    board = [
+        {
+            "username": username,
+            "balance": balance,
+            "wagered_value": float(wagered_value),
+            "total_value": balance + float(wagered_value),
+        }
+        for username, balance, wagered_value in rows
+    ]
     board.sort(key=lambda row: row["total_value"], reverse=True)
     return board
 
 
-def list_teams(db: Session) -> list[models.Team]:
-    teams = db.query(models.Team).order_by(models.Team.sort_order.asc()).all()
+def list_teams(db: Session, *, include_rosters: bool = False) -> list[models.Team]:
+    query = db.query(models.Team).order_by(models.Team.sort_order.asc())
+    if include_rosters:
+        query = query.options(selectinload(models.Team.roster))
+    teams = query.all()
     if not teams:
         db.add_all(
             models.Team(name=name, sort_order=index)
             for index, name in enumerate(TEAM_NAMES, start=1)
         )
         db.commit()
-        teams = db.query(models.Team).order_by(models.Team.sort_order.asc()).all()
+        teams = query.all()
     return teams
 
 
@@ -405,6 +422,7 @@ def _team_goals_from_matches(db: Session) -> dict[int, int]:
     team_goals: dict[int, int] = {}
     markets = (
         db.query(models.Market)
+        .options(selectinload(models.Market.outcomes))
         .filter(models.Market.status == models.MarketStatus.RESOLVED)
         .all()
     )
@@ -421,7 +439,7 @@ def _team_goals_from_matches(db: Session) -> dict[int, int]:
 
 
 def list_team_rosters(db: Session) -> list[dict]:
-    teams = list_teams(db)
+    teams = list_teams(db, include_rosters=True)
     team_goals = _team_goals_from_matches(db)
     rosters = []
     for team in teams:
@@ -1056,31 +1074,39 @@ def get_positions(db: Session, user: models.User) -> list[dict]:
     return out
 
 
-def get_transaction_history(db: Session, user: models.User) -> list[dict]:
+def get_transaction_history(
+    db: Session, user: models.User, limit: int | None = None
+) -> list[dict]:
     history = []
-    for transaction in sorted(user.transactions, key=lambda item: item.created_at, reverse=True):
-        market_title = None
-        outcome_name = None
-        resolved = False
+    query = (
+        db.query(
+            models.Transaction,
+            models.Outcome.name,
+            models.Market.title,
+            models.Market.status,
+            models.Market.resolved_as_draw,
+            models.Market.resolved_outcome_id,
+        )
+        .outerjoin(models.Outcome, models.Transaction.outcome_id == models.Outcome.id)
+        .outerjoin(models.Market, models.Outcome.market_id == models.Market.id)
+        .filter(models.Transaction.user_id == user.id)
+        .order_by(models.Transaction.created_at.desc())
+    )
+    if limit is not None:
+        query = query.limit(limit)
+
+    for transaction, outcome_name, market_title, market_status, resolved_as_draw, resolved_outcome_id in query:
+        resolved = market_status == models.MarketStatus.RESOLVED
         won = None
         winnings = None
-        drawn = False
-        if transaction.outcome_id is not None:
-            outcome = db.get(models.Outcome, transaction.outcome_id)
-            if outcome is not None:
-                market = outcome.market
-                market_title = market.title
-                outcome_name = outcome.name
-                resolved = market.status == models.MarketStatus.RESOLVED
-                drawn = market.resolved_as_draw
-                if transaction.type == models.TransactionType.TRADE and resolved:
-                    if not drawn:
-                        won = transaction.outcome_id == market.resolved_outcome_id
-                        winnings = (
-                            transaction.locked_payout
-                            if transaction.locked_payout is not None
-                            else transaction.shares
-                        ) if won else 0.0
+        drawn = bool(resolved_as_draw)
+        if transaction.type == models.TransactionType.TRADE and resolved and not drawn:
+            won = transaction.outcome_id == resolved_outcome_id
+            winnings = (
+                transaction.locked_payout
+                if transaction.locked_payout is not None
+                else transaction.shares
+            ) if won else 0.0
         history.append(
             {
                 "id": transaction.id,

@@ -63,7 +63,8 @@ export const api = {
     request("/admin/info/messages", { method: "POST", body: { text } }),
   getUser: (username) => request(`/users/${encodeURIComponent(username)}`),
   getPositions: (username) => request(`/users/${encodeURIComponent(username)}/positions`),
-  getTransactions: (username) => request(`/users/${encodeURIComponent(username)}/transactions`),
+  getTransactions: (username, limit = 20) =>
+    request(`/users/${encodeURIComponent(username)}/transactions?limit=${limit}`),
   getGuesses: (username) => request(`/users/${encodeURIComponent(username)}/guesses`),
   saveGuess: (marketId, first, second) =>
     request(`/markets/${marketId}/guess`, { method: "PUT", body: { first, second } }),

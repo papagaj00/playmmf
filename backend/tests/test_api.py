@@ -6,7 +6,7 @@ from types import ModuleType
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -746,6 +746,33 @@ def test_variable_wager_quote_and_execution():
     assert rejected.status_code == 400
 
 
+def test_transaction_history_limit_preserves_full_history_default():
+    register("limited-history")
+    market = client.post(
+        "/markets",
+        json={"title": "Limited history", "b": 5000, "outcome_names": ["A", "B"]},
+        headers=ADMIN_HEADERS,
+    ).json()
+    wager = client.post(
+        f"/markets/{market['id']}/wager",
+        json={
+            "username": "limited-history",
+            "outcome_id": market["outcomes"][0]["id"],
+            "amount": 100,
+        },
+    )
+    assert wager.status_code == 200
+
+    full_history = client.get("/users/limited-history/transactions")
+    recent_history = client.get("/users/limited-history/transactions?limit=1")
+
+    assert full_history.status_code == 200
+    assert len(full_history.json()) == 2
+    assert recent_history.status_code == 200
+    assert len(recent_history.json()) == 1
+    assert recent_history.json()[0]["type"] == "trade"
+
+
 def test_pool_wager_locks_payout_and_blocks_cross_outcome_hedging():
     register("pool-player")
     market = client.post(
@@ -1156,6 +1183,40 @@ def test_leaderboard_reflects_balances_and_open_positions():
     assert r.status_code == 200
     names = [row["username"] for row in r.json()]
     assert "alice" in names
+
+
+def test_leaderboard_uses_one_aggregate_query():
+    statements = []
+
+    def capture_statement(connection, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    event.listen(test_engine, "before_cursor_execute", capture_statement)
+    try:
+        with TestSessionLocal() as db:
+            crud.get_leaderboard(db)
+    finally:
+        event.remove(test_engine, "before_cursor_execute", capture_statement)
+
+    assert len(statements) == 1
+
+
+def test_team_rosters_load_related_rows_in_bounded_queries():
+    statements = []
+
+    def capture_statement(connection, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("SELECT"):
+            statements.append(statement)
+
+    event.listen(test_engine, "before_cursor_execute", capture_statement)
+    try:
+        with TestSessionLocal() as db:
+            crud.list_team_rosters(db)
+    finally:
+        event.remove(test_engine, "before_cursor_execute", capture_statement)
+
+    assert len(statements) <= 4
 
 
 def test_admin_balance_adjustment_ban_and_market_deletion():
