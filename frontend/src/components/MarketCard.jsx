@@ -201,7 +201,7 @@ export default function MarketCard({ market, username, balance, positions, guess
               if (openPosition && openPosition.outcome_id !== outcome.id) {
                 setMessage({
                   type: "error",
-                  text: `Na tento zápas už máš otevřenou sázku na „${openPosition.outcome_name}“. Další výsledek můžeš vsadit až po vyhodnocení zápasu.`,
+                  text: `Na tento zápas už máš otevřenou sázku na „${openPosition.outcome_name}“.`,
                 });
                 return;
               }
